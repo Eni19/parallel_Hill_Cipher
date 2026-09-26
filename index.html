@@ -33,11 +33,7 @@
         </button>
         <button class="nav-btn" data-tab="tab-decryption-trick">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/></svg>
-          3. O Truque da Inversa em C
-        </button>
-        <button class="nav-btn" data-tab="tab-pcd-parallel">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
-          4. O Projeto de Paralelização (PCD)
+          3. Como Desfazer a Cifra (A Inversa em C)
         </button>
       </nav>
     </div>
@@ -491,176 +487,160 @@
     </div>
 
     <!-- ============================================================== -->
-    <!-- ABA 3: O TRUQUE DA CHAVE INVERSA EM C                         -->
+    <!-- ABA 3: COMO DESFAZER A CIFRA (A INVERSA EM C EXPLICADA DO ZERO)  -->
     <!-- ============================================================== -->
     <div id="tab-decryption-trick" class="tab-content">
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <div class="card-title">
-          <div class="card-title-icon">
-            <svg width="22" height="22" fill="var(--accent-amber)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
-            <span>Como Desfazer a Mistura: A Chave Inversa no Código C</span>
+      
+      <!-- Introdução Didática ao Desafio -->
+      <section class="story-hero" style="margin-bottom: 1.5rem;">
+        <h2>Como Desfazer a Mistura: A Matriz Inversa (K⁻¹)</h2>
+        <p>
+          Para encriptar, multiplicamos o texto pela Matriz Chave <strong>K</strong>.
+          Para decifrar, precisamos fazer o caminho inverso: multiplicar o texto cifrado pela <strong>Matriz Inversa K⁻¹</strong>.
+          <br>
+          Mas aqui surge um grande desafio matemático que o código em C de Tanay PrabhuDesai resolve de forma brilhante e simples!
+        </p>
+      </section>
+
+      <!-- Cartão 1: O Dilema da Divisão em Criptografia -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(244, 63, 94, 0.15); border-color: var(--accent-rose); color: #fca5a5;">O Grande Desafio</span>
+        <h3 class="timeline-title">1. Por que não podemos simplesmente "dividir" matrizes em Criptografia?</h3>
+        <div class="timeline-body">
+          <p>
+            Na álgebra linear comum do colégio, a inversa de uma matriz é calculada por:
+            <br>
+            <strong style="font-family: var(--font-mono); font-size: 1.15rem; color: #fff;">K⁻¹ = (1 / Determinante) &times; Matriz Adjunta</strong>
+          </p>
+
+          <div class="comparison-grid" style="margin: 1.2rem 0;">
+            <div class="comparison-box flaw">
+              <h4 style="color: var(--accent-rose);">❌ O Problema da Fração</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted);">
+                Imagine que o determinante da chave seja <strong>25</strong> e um elemento da matriz adjunta seja <strong>8</strong>.
+                <br>
+                Se fizermos a divisão comum: <code>8 / 25 = 0.32</code>.
+                <br>
+                <strong>Em criptografia isso não existe!</strong> Não existe a letra de número 0.32 no alfabeto. Todas as letras precisam ser números inteiros de 0 a 25.
+              </p>
+            </div>
+
+            <div class="comparison-box solution">
+              <h4 style="color: var(--accent-emerald);">💡 A Sacada do Relógio (+26)</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted);">
+                Lembre-se do nosso <strong>relógio de 26 horas</strong>:
+                <br>
+                Dar uma volta completa no relógio (somar <strong>+26</strong>) cai exatamente na mesma hora!
+                <br>
+                Em termos matemáticos: <code style="color: #fff; font-weight: 700;">26 &equiv; 0 (mod 26)</code>.
+                <br>
+                Então, podemos somar 26 quantas vezes quisermos sem alterar o valor da letra!
+              </p>
+            </div>
           </div>
         </div>
+      </div>
 
-        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">
-          Para decifrar o texto, precisamos da matriz inversa $K^{-1}$ (a receita que desfaz a mistura):
-          <br>
-          <strong style="color: #fff; font-family: var(--font-mono); font-size: 1.1rem;">K⁻¹ = (1 / det(K)) &times; adj(K) (mod 26)</strong>
-        </p>
+      <!-- Cartão 2: A Função em C de Tanayseven Explicada -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(16, 185, 129, 0.15); border-color: var(--accent-emerald); color: #a7f3d0;">O Truque em C</span>
+        <h3 class="timeline-title">2. Como a função Mat_add_num_till_divisible Resolve Isso</h3>
+        <div class="timeline-body">
+          <p>
+            Em vez de usar fórmulas complicadas de teoria dos números (como o Algoritmo Estendido de Euclides), 
+            o código de referência em C (<code class="c-fn">tanayseven_hill_cipher.c</code>) faz uma busca direta:
+          </p>
 
-        <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 1.2rem;">
-          Mas em C não podemos fazer divisão fracionária para números que devem ser inteiros mod 26.
-          Olhe o que o autor do Gist (<code class="c-fn">tanayseven/9491684</code>) faz na função <code class="c-fn">Mat_add_num_till_divisible</code>:
-        </p>
-
-        <div class="code-container" style="margin-bottom: 1.5rem;">
-          <div class="code-header">
-            <span>trecho de tanayseven_hill_cipher.c</span>
-            <span>Função Mat_add_num_till_divisible</span>
+          <div style="background: rgba(10, 15, 29, 0.9); border: 1px solid var(--border-glow); border-radius: var(--radius-md); padding: 1.4rem; margin: 1.2rem 0;">
+            <h4 style="color: var(--accent-cyan); font-size: 1.05rem; margin-bottom: 8px;">A Lógica em Português Claro:</h4>
+            <ol style="margin-left: 1.4rem; color: #cbd5e1; font-size: 0.95rem; line-height: 1.8;">
+              <li>Pega cada número da matriz adjunta.</li>
+              <li>Pergunta: <em>"Esse número é divisível pelo determinante sem sobrar resto?"</em></li>
+              <li>Se não for, <strong>soma +26</strong> a ele!</li>
+              <li>Pergunta de novo: <em>"Agora é divisível?"</em> Se não for, soma +26 de novo!</li>
+              <li>Assim que o número se torna um múltiplo perfeito do determinante, <strong>divide pelo determinante</strong>!</li>
+              <li>O resultado da divisão é um <strong>número inteiro perfeito</strong>, sem casas decimais e sem aproximações!</li>
+            </ol>
           </div>
-          <div class="code-content">
-<span class="c-cm">// Soma 26 repetidamente a cada elemento da adjunta até que ele seja exatamente divisível pelo det!</span>
+
+          <p style="font-size: 0.92rem; color: var(--text-muted); margin-bottom: 0.6rem;">
+            Veja o trecho real em linguagem C que faz exatamente isso:
+          </p>
+
+          <div class="code-container" style="margin-bottom: 1.2rem;">
+            <div class="code-header">
+              <span>tanayseven_hill_cipher.c (linhas 214-222)</span>
+              <span>Função Mat_add_num_till_divisible</span>
+            </div>
+            <div class="code-content">
 <span class="c-type">void</span> <span class="c-fn">Mat_add_num_till_divisible</span>(<span class="c-type">Matrix</span> mat, <span class="c-type">float</span> num, <span class="c-type">float</span> divisor) {
-    <span class="c-type">int</span> row_iter, col_iter;
-    <span class="c-kw">for</span> (row_iter = <span class="c-num">0</span>; row_iter &lt; mat.rows; ++row_iter) {
-        <span class="c-kw">for</span> (col_iter = <span class="c-num">0</span>; col_iter &lt; mat.columns; ++col_iter) {
-            <span class="c-kw">while</span> ((<span class="c-type">int</span>)<span class="c-fn">Mat_get_element</span>(mat, row_iter, col_iter) % (<span class="c-type">int</span>)divisor)
-                <span class="c-fn">Mat_set_element</span>(mat, row_iter, col_iter, <span class="c-fn">Mat_get_element</span>(mat, row_iter, col_iter) + num);
+    <span class="c-kw">for</span> (<span class="c-type">int</span> r = <span class="c-num">0</span>; r &lt; mat.rows; ++r) {
+        <span class="c-kw">for</span> (<span class="c-type">int</span> c = <span class="c-num">0</span>; c &lt; mat.columns; ++c) {
+            <span class="c-cm">// Enquanto o número não for divisível pelo determinante, soma 26!</span>
+            <span class="c-kw">while</span> ((<span class="c-type">int</span>)<span class="c-fn">Mat_get_element</span>(mat, r, c) % (<span class="c-type">int</span>)divisor) {
+                <span class="c-fn">Mat_set_element</span>(mat, r, c, <span class="c-fn">Mat_get_element</span>(mat, r, c) + num);
+            }
         }
     }
 }
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="callout callout-tip">
-          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          <div>
-            Como somar 26 é congruente a 0 mod 26 (<code class="c-num">26 &equiv; 0 mod 26</code>), somar 26 repetidamente não altera o valor modular da matriz! Mas garante que a divisão inteira por <code class="c-num">det</code> seja 100% exata em C, sem casas decimais!
+      <!-- Cartão 3: Os 4 Passos da Inversão Explicados -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(139, 92, 246, 0.15); border-color: var(--accent-purple); color: #ddd6fe;">Passo a Passo</span>
+        <h3 class="timeline-title">3. As 4 Etapas para Construir a Chave Inversa (K⁻¹)</h3>
+        <div class="timeline-body">
+          <div class="grid-2" style="margin: 1.2rem 0;">
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem 1.2rem;">
+              <h4 style="color: var(--accent-purple); font-size: 1rem; margin-bottom: 6px;">Etapa A &bull; O Determinante</h4>
+              <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Calcula o determinante da matriz chave $K$ e aplica módulo 26.
+                <br>Exemplo: se $\det = 441$, no relógio $441 \pmod{26} = \mathbf{25}$.
+              </p>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem 1.2rem;">
+              <h4 style="color: var(--accent-cyan); font-size: 1rem; margin-bottom: 6px;">Etapa B &bull; Menores e Cofatores</h4>
+              <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Para cada célula, elimina a linha e coluna e calcula o minideterminante que sobra, alternando os sinais (+ e -).
+              </p>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem 1.2rem;">
+              <h4 style="color: var(--accent-amber); font-size: 1rem; margin-bottom: 6px;">Etapa C &bull; Matriz Adjunta</h4>
+              <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Gira a matriz de cofatores: o que era linha vira coluna (transposição).
+              </p>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem 1.2rem;">
+              <h4 style="color: var(--accent-emerald); font-size: 1rem; margin-bottom: 6px;">Etapa D &bull; Ajuste com +26 e Divisão</h4>
+              <p style="font-size: 0.88rem; color: var(--text-muted);">
+                Aplica a função em C somando 26 até ser divisível por $\det$, divide por $\det$ e aplica mod 26.
+              </p>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="card" style="background: rgba(10, 15, 29, 0.85); margin-top: 1.5rem;">
-          <h3 style="font-family: var(--font-heading); font-size: 1.1rem; color: #fff; margin-bottom: 0.8rem;">
-            🔬 Rastreamento Detalhado da Matriz Configurada Atual:
-          </h3>
-          <div id="decryption-math-trace">
+      <!-- Cartão 4: Rastreamento ao Vivo da Matriz Atual -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(6, 182, 212, 0.15); border-color: var(--accent-cyan); color: #a5f3fc;">Tabela ao Vivo</span>
+        <h3 class="timeline-title">4. Veja o Cálculo Acontecendo na Matriz Atual</h3>
+        <div class="timeline-body">
+          <p style="font-size: 0.92rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Abaixo está a decomposição célula por célula da matriz configurada atualmente no Laboratório:
+          </p>
+
+          <div id="decryption-math-trace" style="background: rgba(10, 15, 29, 0.85); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1.2rem;">
             <!-- Tabela detalhada das operações gerada via JS -->
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ============================================================== -->
-    <!-- ABA 4: O PROJETO DE PARALELIZAÇÃO (PCD)                        -->
-    <!-- ============================================================== -->
-    <div id="tab-pcd-parallel" class="tab-content">
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <div class="card-title">
-          <div class="card-title-icon">
-            <svg width="22" height="22" fill="var(--accent-cyan)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
-            <span>Por que a Cifra de Hill é Perfeita para Paralelizar em PCD?</span>
-          </div>
-        </div>
-
-        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.2rem;">
-          Aqui está o ponto central do trabalho do seu grupo na disciplina de <strong>Programação Concorrente e Distribuída</strong>:
-          <br>
-          Na Cifra de Hill, <strong>o Bloco 1 NÃO precisa do Bloco 2 para ser cifrado</strong>. Cada bloco de letras é 100% independente dos outros!
-        </p>
-
-        <div class="comparison-grid" style="margin-bottom: 1.5rem;">
-          <div class="comparison-box solution">
-            <h4 style="color: var(--accent-cyan);">🐢 Versão Sequencial (O Gist de Tanayseven)</h4>
-            <p style="font-size: 0.9rem; color: var(--text-muted);">
-              Cifra o Bloco 1 &rarr; depois o Bloco 2 &rarr; depois o Bloco 3... até o Bloco 1.000.000.
-              <br>Se você tiver um texto gigante, 1 núcleo do processador fica sobrecarregado enquanto os outros núcleos ficam dormindo!
-            </p>
-          </div>
-
-          <div class="comparison-box solution">
-            <h4 style="color: var(--accent-emerald);">⚡ Versão Concorrente (Seu Projeto de PCD!)</h4>
-            <p style="font-size: 0.9rem; color: var(--text-muted);">
-              Se você tem 4 núcleos (threads):
-              <br>&bull; Thread 0 cifra os blocos 1 a 250.000
-              <br>&bull; Thread 1 cifra os blocos 250.001 a 500.000
-              <br>&bull; Thread 2 cifra os blocos 500.001 a 750.000
-              <br>&bull; Thread 3 cifra os blocos 750.001 a 1.000.000
-              <br><strong>O tempo de execução cai quase 4 vezes!</strong>
-            </p>
-          </div>
-        </div>
-
-        <!-- Simulador Interativo de Desempenho e Speedup -->
-        <div class="card" style="background: rgba(10, 15, 29, 0.9); margin-top: 1.5rem;">
-          <h3 style="font-family: var(--font-heading); font-size: 1.15rem; color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
-            <svg width="20" height="20" fill="var(--accent-cyan)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
-            Simulador de Speedup e Particionamento de Carga
-          </h3>
-
-          <div class="grid-2" style="margin-bottom: 1.2rem;">
-            <div>
-              <label class="form-label" for="pcd-text-len">Tamanho do Texto a Cifrar (número de caracteres):</label>
-              <select id="pcd-text-len" class="form-input">
-                <option value="10000">10.000 caracteres (~3.333 blocos)</option>
-                <option value="100000" selected>100.000 caracteres (~33.333 blocos)</option>
-                <option value="1000000">1.000.000 caracteres (~333.333 blocos)</option>
-                <option value="10000000">10.000.000 caracteres (~3.333.333 blocos)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="form-label" for="pcd-threads-select">Número de Threads Paralelas (OpenMP / Core):</label>
-              <select id="pcd-threads-select" class="form-input">
-                <option value="2">2 Threads</option>
-                <option value="4" selected>4 Threads (Quad-Core)</option>
-                <option value="8">8 Threads (Octa-Core)</option>
-                <option value="16">16 Threads (High-End / Servidor)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Métricas Estimadas -->
-          <div class="grid-3" style="margin-bottom: 1.2rem;">
-            <div style="background: rgba(30, 41, 59, 0.5); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-              <div style="font-size: 0.78rem; color: var(--text-dim);">Total de Blocos N&times;1:</div>
-              <div id="pcd-blocks-count" style="font-size: 1.4rem; font-family: var(--font-mono); font-weight: 700; color: #fff;">0</div>
-            </div>
-
-            <div style="background: rgba(30, 41, 59, 0.5); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-              <div style="font-size: 0.78rem; color: var(--text-dim);">Tempo Sequencial Estimado:</div>
-              <div id="pcd-time-seq" style="font-size: 1.4rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent-rose);">0 ms</div>
-            </div>
-
-            <div style="background: rgba(30, 41, 59, 0.5); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-              <div style="font-size: 0.78rem; color: var(--text-dim);">Tempo Paralelo Estimado:</div>
-              <div id="pcd-time-par" style="font-size: 1.4rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent-emerald);">0 ms</div>
-            </div>
-          </div>
-
-          <!-- Barra de Speedup -->
-          <div style="margin-bottom: 1.2rem;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
-              <span>Speedup (Aceleração estimada com Lei de Amdahl):</span>
-              <strong id="pcd-speedup-badge" style="color: var(--accent-cyan);">0x mais rápido</strong>
-            </div>
-            <div class="speedup-meter">
-              <div id="pcd-speedup-bar" class="speedup-fill"></div>
-            </div>
-          </div>
-
-          <!-- Visualização das Threads -->
-          <div>
-            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.6rem;">
-              Divisão de Carga entre Threads (Mapeamento de Blocos em Memória):
-            </div>
-            <div class="thread-vis" id="pcd-threads-vis">
-              <!-- Renderizado via JS -->
-            </div>
-          </div>
-
-        </div>
-
-      </div>
     </div>
 
   </main>

@@ -228,11 +228,7 @@ const AppState = {
   activeBlockIndex: 0,
   isPlaying: false,
   playTimer: null,
-  speedMs: 800,
-
-  // PCD Benchmark
-  pcdBenchmarkTextLength: 100000,
-  pcdThreads: 4
+  speedMs: 800
 };
 
 // Presets pré-configurados
@@ -877,52 +873,6 @@ function runTutorialDemo(word, v0, v1) {
   if (clickedBtn) clickedBtn.classList.add("active");
 }
 
-// --- Paralelização PCD: Simulador de Desempenho e Speedup ---
-
-function updatePCDSimulation() {
-  const textLenEl = document.getElementById("pcd-text-len");
-  const threadsEl = document.getElementById("pcd-threads-select");
-  if (!textLenEl || !threadsEl) return;
-
-  const textLen = parseInt(textLenEl.value) || 100000;
-  const threads = parseInt(threadsEl.value) || 4;
-  const size = AppState.matrixSize;
-  const numBlocks = Math.ceil(textLen / size);
-
-  const timeSeqMs = (numBlocks * size * size * 0.00035).toFixed(2);
-  const parallelPortion = 0.96;
-  const speedupTheoretical = (1 / ((1 - parallelPortion) + (parallelPortion / threads))).toFixed(2);
-  const timeParMs = (timeSeqMs / speedupTheoretical).toFixed(2);
-
-  document.getElementById("pcd-blocks-count").textContent = numBlocks.toLocaleString();
-  document.getElementById("pcd-time-seq").textContent = `${timeSeqMs} ms`;
-  document.getElementById("pcd-time-par").textContent = `${timeParMs} ms`;
-  document.getElementById("pcd-speedup-badge").textContent = `${speedupTheoretical}x mais rápido`;
-
-  const fillPercent = Math.min(100, (parseFloat(speedupTheoretical) / 16) * 100);
-  document.getElementById("pcd-speedup-bar").style.width = `${fillPercent}%`;
-
-  const threadsVis = document.getElementById("pcd-threads-vis");
-  if (!threadsVis) return;
-  threadsVis.innerHTML = "";
-  const blocksPerThread = Math.floor(numBlocks / threads);
-
-  for (let t = 0; t < threads; t++) {
-    const startB = t * blocksPerThread;
-    const endB = (t === threads - 1) ? numBlocks - 1 : (t + 1) * blocksPerThread - 1;
-    const div = document.createElement("div");
-    div.className = "thread-worker";
-    div.innerHTML = `
-      <div class="thread-title">Thread #${t}</div>
-      <div class="thread-badge">OpenMP Core</div>
-      <div class="thread-workload" style="margin-top:6px;">
-        Blocos: ${startB.toLocaleString()} &rarr; ${endB.toLocaleString()}<br>
-        <strong>${(endB - startB + 1).toLocaleString()} blocos</strong>
-      </div>
-    `;
-    threadsVis.appendChild(div);
-  }
-}
 
 // Renderiza a explicação didática do truque de Tanayseven
 function renderDecryptionTrace(info) {
@@ -1090,15 +1040,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // PCD simulation inputs
-  const pcdText = document.getElementById("pcd-text-len");
-  if (pcdText) pcdText.addEventListener("input", updatePCDSimulation);
-  const pcdThreads = document.getElementById("pcd-threads-select");
-  if (pcdThreads) pcdThreads.addEventListener("change", updatePCDSimulation);
-
   // Inicializa tudo
   renderAlphabetStrip();
   renderMatrixInputs();
   setMode(true);
-  updatePCDSimulation();
 });

@@ -55,20 +55,24 @@ Como $26 \equiv 0 \pmod{26}$, o valor modular é preservado e a divisão inteira
 
 Para permitir que qualquer integrante do grupo (ou o professor) compreenda o algoritmo antes de inspecionar o código, criamos uma aplicação web completa e interativa:
 
-### Recursos do Site:
-- **Trilha Didática "Aprenda do Zero":**
-  - Explicação histórica e intuitiva sem jargões.
-  - Régua interativa do alfabeto ($A=0 \dots Z=25$).
-  - Diagrama visual de produto de matrizes com botões de teste interativo ("CA", "OI", "PA").
-  - O relógio de 26 horas ilustrando a aritmética $\pmod{26}$.
-- **Mesa de Operação Integrada (Laboratório):**
-  - Matrizes espaçosas e de alta visibilidade, sem vazamento de texto.
-  - Esteira de blocos clicáveis.
-  - **Fluxo inteligente de Encriptação & Decriptação:**
-    - *Modo Encriptação:* Texto original $\to$ multiplicado por $K$ $\to$ gera o texto cifrado.
-    - *Modo Decriptação:* O texto cifrado gerado é carregado na entrada $\to$ multiplicado por $K^{-1}$ $\to$ revela a mensagem original restaurada!
-  - Execução passo a passo manual e reprodução automática (*auto-play*) com velocidade ajustável.
-- **Simulador PCD:** Estimativa de Speedup segundo a Lei de Amdahl com visualização gráfica da divisão de blocos por threads (1 a 16 threads).
+### Recursos do Site (3 Módulos Didáticos):
+1. **1. O que é & Como Funciona (Aprenda do Zero):**
+   - Explicação histórica e intuitiva do objetivo da cifra poligráfica.
+   - Régua interativa do alfabeto ($A=0 \dots Z=25$).
+   - Demonstração visual da multiplicação matricial com botões de teste interativo ("CA", "OI", "PA").
+   - O relógio de 26 horas ilustrando a aritmética modular $\pmod{26}$.
+2. **2. Laboratório Interativo (Mesa de Operação):**
+   - Matrizes espaçosas e de alta visibilidade, sem aperto ou vazamento de texto.
+   - Esteira de blocos clicáveis.
+   - **Fluxo inteligente e intuitivo de Encriptação & Decriptação:**
+     - *Modo Encriptação:* Texto original $\to$ multiplicado por $K$ $\to$ gera o texto cifrado.
+     - *Modo Decriptação:* O texto cifrado gerado é carregado na entrada $\to$ multiplicado por $K^{-1}$ $\to$ revela a mensagem original restaurada!
+   - Execução passo a passo manual e reprodução automática (*auto-play*) com velocidade configurável.
+3. **3. Como Desfazer a Cifra (A Inversa em C Explicada):**
+   - O Dilema da Divisão em Criptografia (por que frações como $8/25 = 0.32$ não existem no alfabeto).
+   - A Solução do Relógio (+26) e como a função `Mat_add_num_till_divisible` em C resolve isso sem aproximações.
+   - Os 4 passos matemáticos da inversão (Determinante, Cofatores, Adjunta e Ajuste).
+   - Tabela de rastreamento ao vivo para as 9 posições da matriz ativa.
 
 ### Como rodar a aplicação web:
 ```bash
@@ -115,30 +119,6 @@ Texto Original: RETREATXX
 Texto Cifrado : JHRQZSNNY
 Texto Decifrado: RETREATXX
 ```
-
----
-
-## ⚡ 5. Roteiro de Paralelização para PCD
-
-A Cifra de Hill opera nativamente no modo **ECB (Electronic Codebook)**: a encriptação de um bloco $i$ é totalmente independente do bloco $j$. Trata-se de um problema **embaraçosamente paralelo** (*embarrassingly parallel*).
-
-### Estratégias Planejadas:
-1. **Paralelismo de Dados em Loop 1D (OpenMP):**
-   ```c
-   #pragma omp parallel for schedule(static)
-   for (int b = 0; b < total_blocos; ++b) {
-       multiplicar_bloco_chave(K, &texto[b * N], N);
-   }
-   ```
-2. **Formulação Matricial Geral GEMM (Conexão com `mperlet/matrix_multiplication`):**
-   - Agrupar todo o texto de $M$ blocos em uma grande matriz $\mathbf{P}_{N \times M}$.
-   - A encriptação inteira vira uma única multiplicação:
-     $$\mathbf{C}_{N \times M} = (\mathbf{K}_{N \times N} \times \mathbf{P}_{N \times M}) \pmod{26}$$
-   - Aplicar **cache blocking (tiling)**, vetorização SIMD (AVX2/AVX-512) e escalonamento dinâmico.
-3. **Métricas a Medir:**
-   - **Speedup:** $S_p = \frac{T_1}{T_p}$
-   - **Eficiência:** $E_p = \frac{S_p}{p}$
-   - Testes de escalabilidade com 1, 2, 4, 8 e 16 threads para volumes de 100 KB, 1 MB, 10 MB e 100 MB de texto.
 
 ---
 

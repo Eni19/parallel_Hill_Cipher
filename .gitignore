@@ -1,0 +1,14 @@
+# Compilação C / Executáveis
+*.exe
+*.o
+*.obj
+*.out
+*.dll
+hill_test.exe
+
+# Logs e arquivos temporários
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

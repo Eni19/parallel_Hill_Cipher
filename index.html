@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cifra de Hill Didática | Guia Visual & Laboratório Interativo (PCD - UNIFESP)</title>
+  <meta name="description" content="Aprenda a Cifra de Hill do zero com matrizes ilustradas e experimente o laboratório interativo integrado para o projeto de Programação Concorrente e Distribuída (PCD).">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Site Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <div class="logo-group">
+        <div class="logo-badge">H</div>
+        <div class="logo-text">
+          <h1>Cifra de Hill Didática</h1>
+          <div class="subtitle">
+            <span>●</span> Programação Concorrente & Distribuída (PCD) &bull; UNIFESP
+          </div>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <button class="nav-btn active" data-tab="tab-learn-story">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
+          1. O que é & Como Funciona
+        </button>
+        <button class="nav-btn" data-tab="tab-simulator">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+          2. Laboratório Interativo
+        </button>
+        <button class="nav-btn" data-tab="tab-decryption-trick">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/></svg>
+          3. O Truque da Inversa em C
+        </button>
+        <button class="nav-btn" data-tab="tab-pcd-parallel">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+          4. O Projeto de Paralelização (PCD)
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-wrapper">
+
+    <!-- ============================================================== -->
+    <!-- ABA 1: APRENDA DO ZERO (EXPLICAÇÃO VISUAL, HISTÓRIA E INTUIÇÃO) -->
+    <!-- ============================================================== -->
+    <div id="tab-learn-story" class="tab-content active">
+
+      <!-- Hero Didático -->
+      <section class="story-hero">
+        <h2>Entenda a Cifra de Hill Passo a Passo</h2>
+        <p>
+          Antes de mergulhar em código ou matrizes gigantes, veja <strong>por que ela foi inventada</strong>, 
+          <strong>como ela mistura as letras usando matrizes visuais</strong> e como você pode decifrar mensagens facilmente.
+        </p>
+      </section>
+
+      <!-- PASSO 1: O OBJETIVO HISTÓRICO -->
+      <div class="timeline-card">
+        <span class="step-badge">Capítulo 1 &bull; O Problema</span>
+        <h3 class="timeline-title">Por que inventaram a Cifra de Hill?</h3>
+        <div class="timeline-body">
+          <p>
+            Durante séculos, as pessoas usavam cifras como a <strong>Cifra de César</strong>: trocavam cada letra individualmente por outra fixa (exemplo: todo <code>A</code> virava <code>D</code>).
+          </p>
+
+          <div class="comparison-grid">
+            <div class="comparison-box flaw">
+              <h4 style="color: var(--accent-rose);">❌ O Defeito das Cifras Antigas</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted);">
+                Em português ou inglês, a letra <strong>'A'</strong> e a letra <strong>'E'</strong> aparecem o tempo todo. Se você sempre troca a letra 'A' por 'X', um espião só precisa contar qual letra mais aparece no texto cifrado e descobre sua mensagem em minutos! Isso se chama <strong>análise de frequência</strong>.
+              </p>
+            </div>
+
+            <div class="comparison-box solution">
+              <h4 style="color: var(--accent-emerald);">💡 A Solução de Lester S. Hill (1929)</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted);">
+                Em 1929, o matemático Lester Hill teve uma ideia genial: <em>"E se nós não trocássemos letra por letra, mas sim <strong>blocos de letras juntos</strong> (pares ou trios de letras) usando matemática?"</em>
+              </p>
+            </div>
+          </div>
+
+          <p>
+            Com a <strong>Cifra de Hill</strong>, a mesma letra <code>A</code> pode virar <code>X</code> na primeira palavra e virar <code>M</code> na segunda palavra, porque o resultado depende das letras vizinhas dela no bloco! A análise de frequência simples fica completamente inútil.
+          </p>
+        </div>
+      </div>
+
+      <!-- PASSO 2: A RÉGUA DO ALFABETO -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(6, 182, 212, 0.15); border-color: var(--accent-cyan); color: #a5f3fc;">Capítulo 2 &bull; O Dicionário</span>
+        <h3 class="timeline-title">Passo 1: Transformar Letras em Números (0 a 25)</h3>
+        <div class="timeline-body">
+          <p>
+            Computadores e matrizes não sabem multiplicar a letra "B" pela letra "C". Por isso, a primeira coisa que fazemos é numerar o alfabeto de <strong>0 a 25</strong>:
+          </p>
+
+          <!-- Régua Interativa do Alfabeto -->
+          <div class="alphabet-strip" id="interactive-alpha-strip">
+            <!-- Gerado via JS com A:0, B:1... Z:25 -->
+          </div>
+
+          <div style="background: rgba(30, 41, 59, 0.4); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-top: 10px;">
+            <p style="font-size: 0.92rem; color: var(--text-muted);">
+              <strong>Exemplo:</strong> A palavra <code style="color: #fff; font-size: 1.05rem;">C A S A</code> vira a sequência de números:
+              <span style="font-family: var(--font-mono); color: var(--accent-cyan); font-weight: 700; margin-left: 8px;">C = 2, A = 0, S = 18, A = 0 &rarr; [2, 0, 18, 0]</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PASSO 3: AGRUPAR EM BLOCOS -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(139, 92, 246, 0.15); border-color: var(--accent-purple); color: #ddd6fe;">Capítulo 3 &bull; O Agrupamento</span>
+        <h3 class="timeline-title">Passo 2: Dividir o Texto em Blocos (Vetores)</h3>
+        <div class="timeline-body">
+          <p>
+            Escolhemos um tamanho de bloco $N$. 
+            Se escolhermos $N = 2$, agrupamos de 2 em 2 letras. Se escolhermos $N = 3$, agrupamos de 3 em 3 letras.
+          </p>
+
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin: 1.2rem 0;">
+            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 18px; text-align: center;">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Bloco 1</div>
+              <div style="font-size: 1.3rem; font-weight: 700; color: #fff; font-family: var(--font-mono);">R E T</div>
+              <div style="font-size: 0.85rem; color: var(--accent-cyan); font-family: var(--font-mono);">[17, 4, 19]ᵀ</div>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 18px; text-align: center;">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Bloco 2</div>
+              <div style="font-size: 1.3rem; font-weight: 700; color: #fff; font-family: var(--font-mono);">R E A</div>
+              <div style="font-size: 0.85rem; color: var(--accent-cyan); font-family: var(--font-mono);">[17, 4, 0]ᵀ</div>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 18px; text-align: center;">
+              <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Bloco 3 (Com Padding 'X')</div>
+              <div style="font-size: 1.3rem; font-weight: 700; color: #fff; font-family: var(--font-mono);">T <span style="color: var(--accent-amber);">X X</span></div>
+              <div style="font-size: 0.85rem; color: var(--accent-cyan); font-family: var(--font-mono);">[19, 23, 23]ᵀ</div>
+            </div>
+          </div>
+
+          <p style="font-size: 0.9rem; color: var(--text-muted);">
+            <em>E se faltar letra no final?</em> Adicionamos uma letra neutra de preenchimento (como <strong>'X'</strong>) para fechar o bloco completo.
+          </p>
+        </div>
+      </div>
+
+      <!-- PASSO 4: A MATRIZ CHAVE EM AÇÃO (ILUSTRATIVO E INTERATIVO) -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(16, 185, 129, 0.15); border-color: var(--accent-emerald); color: #a7f3d0;">Capítulo 4 &bull; A Mágica Ilustrada</span>
+        <h3 class="timeline-title">Passo 3: A Matriz Chave &bull; Veja a Mistura com Matrizes</h3>
+        <div class="timeline-body">
+          <p>
+            A <strong>Matriz Chave ($K$)</strong> é a nossa fórmula secreta. Cada linha dela faz um produto interno com as letras do bloco.
+            Veja abaixo exatamente como a matriz se parece e como ela opera no bloco de letras:
+          </p>
+
+          <!-- Demonstração Visual Ilustrativa da Matriz Chave -->
+          <div class="visual-recipe-box">
+            <div style="text-align: center; margin-bottom: 1rem;">
+              <span style="font-size: 0.85rem; color: var(--text-muted);">Clique para testar diferentes palavras e veja as células se multiplicando:</span>
+              <div style="display: flex; justify-content: center; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+                <button class="preset-btn active" id="demo-btn-ca" onclick="runTutorialDemo('CA', 2, 0)">Testar Bloco "CA" [2, 0]</button>
+                <button class="preset-btn" id="demo-btn-oi" onclick="runTutorialDemo('OI', 14, 8)">Testar Bloco "OI" [14, 8]</button>
+                <button class="preset-btn" id="demo-btn-pa" onclick="runTutorialDemo('PA', 15, 0)">Testar Bloco "PA" [15, 0]</button>
+              </div>
+            </div>
+
+            <!-- Equação Visual com Colchetes -->
+            <div class="recipe-row">
+              <!-- Matriz Chave 2x2 -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <span style="font-size: 0.75rem; color: #a5b4fc; font-weight: 700;">MATRIZ CHAVE (K)</span>
+                <div class="bracket-matrix">
+                  <div class="matrix-grid matrix-grid-2x2">
+                    <div class="cell-pill r1" title="Linha 1, Coluna 1">3</div>
+                    <div class="cell-pill r1" title="Linha 1, Coluna 2">3</div>
+                    <div class="cell-pill r2" title="Linha 2, Coluna 1">2</div>
+                    <div class="cell-pill r2" title="Linha 2, Coluna 2">5</div>
+                  </div>
+                </div>
+              </div>
+
+              <span class="recipe-operator">&times;</span>
+
+              <!-- Vetor Bloco -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <span style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">BLOCO <span id="tut-block-label">"CA"</span></span>
+                <div class="bracket-matrix vector">
+                  <div class="matrix-grid matrix-grid-vector">
+                    <div class="cell-pill vec" id="tut-vec-0">2</div>
+                    <div class="cell-pill vec" id="tut-vec-1">0</div>
+                  </div>
+                </div>
+              </div>
+
+              <span class="recipe-operator">=</span>
+
+              <!-- Vetor Resultado -->
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <span style="font-size: 0.75rem; color: var(--accent-emerald); font-weight: 700;">RESULTADO mod 26</span>
+                <div class="bracket-matrix result">
+                  <div class="matrix-grid matrix-grid-vector">
+                    <div class="cell-pill res" id="tut-res-0">6 ('G')</div>
+                    <div class="cell-pill res" id="tut-res-1">4 ('E')</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detalhe da Conta Linha a Linha -->
+            <div id="tut-detail-math" style="background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 16px; margin-top: 1rem; font-family: var(--font-mono); font-size: 0.92rem; text-align: center;">
+              <div style="color: #e0e7ff; margin-bottom: 6px;">
+                <span style="color: var(--accent-purple); font-weight: 700;">Linha 1 (Roxa) &times; Vetor:</span> (3 &times; 2) + (3 &times; 0) = 6 &implies; 6 mod 26 = <strong>6 &rarr; Letra 'G'</strong>
+              </div>
+              <div style="color: #fef3c7;">
+                <span style="color: var(--accent-amber); font-weight: 700;">Linha 2 (Amarela) &times; Vetor:</span> (2 &times; 2) + (5 &times; 0) = 4 &implies; 4 mod 26 = <strong>4 &rarr; Letra 'E'</strong>
+              </div>
+            </div>
+          </div>
+
+          <p style="font-size: 0.95rem; color: var(--text-muted);">
+            Viu como funciona? Cada linha da matriz chave calcula uma letra do bloco resultante multiplicando e somando os números do bloco!
+          </p>
+        </div>
+      </div>
+
+      <!-- PASSO 5: O RELÓGIO DE 26 HORAS -->
+      <div class="timeline-card">
+        <span class="step-badge" style="background: rgba(245, 158, 11, 0.15); border-color: var(--accent-amber); color: #fde68a;">Capítulo 5 &bull; O Módulo</span>
+        <h3 class="timeline-title">Passo 4: O Relógio de 26 Horas (mod 26)</h3>
+        <div class="timeline-body">
+          <p>
+            Quando multiplicamos os números, o resultado pode dar um número grande, como <strong>67</strong>. Mas o nosso alfabeto só tem letras de <strong>0 a 25</strong>! O que fazemos?
+          </p>
+
+          <div class="clock-mod-visual">
+            <div class="clock-icon-badge">26</div>
+            <div class="clock-text">
+              <h4>Aritmética Modular: O Alfabeto dá a volta como um Relógio!</h4>
+              <p>
+                Imagine um relógio com 26 horas (de 0 a 25). Quando você passa do 25, você volta para o 0 (A).
+                <br>
+                Fazer <code>67 mod 26</code> é simplesmente pegar o <strong>resto da divisão inteira</strong> de 67 por 26:
+                <br>
+                <strong style="color: #fff; font-family: var(--font-mono);">67 = 2 &times; 26 + 15 &implies; Resto = 15</strong> (que corresponde à letra <strong>'P'</strong>!).
+              </p>
+            </div>
+          </div>
+
+          <div style="margin-top: 1.5rem; text-align: center;">
+            <button class="btn-primary" onclick="document.querySelector('[data-tab=tab-simulator]').click();" style="font-size: 1rem; padding: 12px 26px;">
+              🚀 Abrir o Laboratório Interativo e Experimentar Qualquer Frase &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- ABA 2: LABORATÓRIO REDESENHADO: MESA DE OPERAÇÃO CENTRALIZADA   -->
+    <!-- ============================================================== -->
+    <div id="tab-simulator" class="tab-content">
+
+      <!-- Workbench Central Unificado -->
+      <div class="workbench-card">
+        
+        <!-- Barra de Topo do Laboratório -->
+        <div class="workbench-top-bar">
+          <div>
+            <h2 style="font-family: var(--font-heading); font-size: 1.4rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+              <svg width="22" height="22" fill="var(--accent-indigo)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+              Mesa de Operação da Cifra de Hill
+            </h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+              Veja a matriz chave operando diretamente sobre cada bloco de letras em tempo real.
+            </p>
+          </div>
+
+          <!-- Alternador de Modo: Encriptar vs Decriptar -->
+          <div class="mode-switch-group">
+            <button id="btn-mode-encrypt" class="mode-switch-btn active encrypt">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+              🔒 Encriptar (Chave K)
+            </button>
+            <button id="btn-mode-decrypt" class="mode-switch-btn">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 016 0V9a1 1 0 102 0V7a5 5 0 00-5-5z" clip-rule="evenodd"/></svg>
+              🔓 Decriptar (Chave Inversa K⁻¹)
+            </button>
+          </div>
+        </div>
+
+        <!-- Campo de Entrada de Texto Dinâmico -->
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label" for="cipher-input-text" style="display: flex; justify-content: space-between; align-items: center;">
+            <span id="input-field-label" style="font-size: 0.95rem; font-weight: 700; color: #fff;">
+              Texto Original (Plano) a ser Criptografado com a Matriz K:
+            </span>
+            <span style="font-size: 0.78rem; color: var(--text-dim); font-weight: normal;">(Apenas letras A-Z)</span>
+          </label>
+          <input type="text" id="cipher-input-text" class="form-input" value="RETREAT" placeholder="Digite uma frase ou palavra (ex: RETREAT, HELLO, CASA)">
+        </div>
+
+        <div id="padding-notice" class="callout callout-warning" style="display: none;">
+          <!-- Aviso de padding com 'X' se texto não for múltiplo de N -->
+        </div>
+
+        <!-- Esteira Horizontal de Blocos Clicáveis -->
+        <div style="margin-bottom: 0.5rem;">
+          <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span id="conveyor-title-label">Blocos do Texto a Processar (Clique para selecionar):</span>
+            <span style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.78rem;">Dimensão: <span id="conveyor-dim-label">3 letras por bloco</span></span>
+          </div>
+          <div class="block-conveyor-belt" id="text-blocks-container">
+            <!-- Blocos renderizados via JS -->
+          </div>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- O PALCO CENTRAL: A EQUAÇÃO MATRICIAL VIVA                -->
+        <!-- ======================================================= -->
+        <div class="matrix-workbench-stage">
+          
+          <div class="equation-row">
+            
+            <!-- 1. Matriz Chave Ativa -->
+            <div class="matrix-box-unit">
+              <span class="matrix-label-pill key-enc" id="active-key-label">
+                Matriz Chave K (Encriptação)
+              </span>
+              <div class="bracket-matrix" id="active-key-bracket">
+                <table class="matrix-table" id="workbench-key-table">
+                  <!-- Células preenchidas dinamicamente via JS -->
+                </table>
+              </div>
+            </div>
+
+            <!-- Sinal de Multiplicação -->
+            <span class="op-sign">&times;</span>
+
+            <!-- 2. Vetor do Bloco Selecionado -->
+            <div class="matrix-box-unit">
+              <span class="matrix-label-pill vector-label" id="active-vector-label">
+                Bloco 1: "RET"
+              </span>
+              <div class="bracket-matrix vector">
+                <table class="matrix-table" id="workbench-vector-table">
+                  <!-- Vetor preenchido dinamicamente via JS -->
+                </table>
+              </div>
+            </div>
+
+            <!-- Sinal de Igual -->
+            <span class="op-sign">=</span>
+
+            <!-- 3. Vetor Resultante mod 26 -->
+            <div class="matrix-box-unit">
+              <span class="matrix-label-pill result-label" id="active-result-label">
+                Vetor Resultante mod 26
+              </span>
+              <div class="bracket-matrix result">
+                <table class="matrix-table" id="workbench-result-table">
+                  <!-- Resultado preenchido dinamicamente via JS -->
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Caixa de Cálculo Aritmético Sincronizado com o Passo Atual -->
+          <div class="live-calc-box" id="step-formula-box">
+            <!-- Exibe o cálculo exato da linha da matriz x vetor -->
+          </div>
+
+          <!-- Barra de Controles de Passo a Passo Centralizada -->
+          <div class="stepper-action-bar">
+            <div style="font-size: 0.88rem; color: var(--text-muted);" id="step-counter-info">
+              Pronto para iniciar o passo a passo.
+            </div>
+
+            <div class="controls-row" style="margin: 0;">
+              <button id="btn-step-reset" class="btn-secondary" title="Voltar ao início">⏮ Início</button>
+              <button id="btn-step-prev" class="btn-secondary" title="Passo anterior">◀ Anterior</button>
+              <button id="btn-play-pause" class="btn-primary" title="Reproduzir automaticamente">
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+                Auto-play
+              </button>
+              <button id="btn-step-next" class="btn-primary" title="Próximo passo">▶ Próximo Passo</button>
+              <button id="btn-step-end" class="btn-secondary" title="Ir para o final">⏩ Pular ao Fim</button>
+
+              <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+                <span style="font-size: 0.78rem; color: var(--text-dim);">Velocidade:</span>
+                <input type="range" id="stepper-speed" min="200" max="1800" step="100" value="800" style="width: 80px; accent-color: var(--accent-indigo);">
+                <span id="stepper-speed-val" style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--accent-cyan);">800ms</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Saídas Parcial e Final Logo Abaixo da Mesa -->
+        <div class="grid-2" style="margin-top: 1.5rem;">
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem;" id="output-partial-label">
+              Saída Construída até o Passo Atual:
+            </div>
+            <div class="result-display cipher" id="result-display">
+              (Aguardando execução...)
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem;" id="output-full-label">
+              Texto Cifrado Resultante:
+            </div>
+            <div class="result-display cipher" id="full-output-display">
+              <!-- Preenchido via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+          <button id="btn-use-result-as-input" class="btn-primary" style="padding: 10px 20px;">
+            👉 Testar Decriptação: Carregar este Cifrotexto e Decifrar com K⁻¹
+          </button>
+        </div>
+
+        <!-- Gaveta de Configuração da Chave (Recolhível / Não Distrai) -->
+        <details class="settings-drawer" id="settings-drawer">
+          <summary class="settings-header">
+            <span>⚙️ Configurações da Matriz Chave & Presets (Clique para abrir/editar)</span>
+            <span style="font-size: 0.8rem; color: var(--accent-cyan);">Editar Dimensão ou Números &darr;</span>
+          </summary>
+
+          <div style="margin-top: 1.2rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 1rem;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="matrix-size-select" style="font-size: 0.85rem; color: var(--text-muted);">Dimensão da Chave:</label>
+                <select id="matrix-size-select" class="form-input" style="width: auto; padding: 4px 10px;">
+                  <option value="3" selected>3 x 3 (Padrão Tanayseven)</option>
+                  <option value="2">2 x 2 (Clássico)</option>
+                </select>
+              </div>
+
+              <div class="presets-bar" style="margin: 0;">
+                <button class="preset-btn active" data-preset="3x3-tanay">3x3 Tanayseven</button>
+                <button class="preset-btn" data-preset="2x2-classic">2x2 Clássico</button>
+                <button class="preset-btn" data-preset="2x2-alternate">2x2 Alternativo</button>
+                <button class="preset-btn" data-preset="3x3-alternate">3x3 Alternativo</button>
+              </div>
+            </div>
+
+            <!-- Tabela Editável da Matriz K -->
+            <div class="grid-2">
+              <div>
+                <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">
+                  Editar Elementos da Matriz Chave K:
+                </span>
+                <div class="matrix-wrapper">
+                  <table class="matrix-table" id="matrix-input-table">
+                    <!-- Preenchido via JavaScript -->
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">
+                  Matriz Inversa Gerada K⁻¹:
+                </span>
+                <div class="matrix-wrapper">
+                  <table class="matrix-table" id="matrix-decryption-table">
+                    <!-- Preenchido via JavaScript -->
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div id="matrix-diagnostics" class="diag-badge valid" style="margin-top: 1rem;">
+              <!-- Diagnóstico gerado via JS -->
+            </div>
+          </div>
+        </details>
+
+      </div>
+
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- ABA 3: O TRUQUE DA CHAVE INVERSA EM C                         -->
+    <!-- ============================================================== -->
+    <div id="tab-decryption-trick" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-title">
+          <div class="card-title-icon">
+            <svg width="22" height="22" fill="var(--accent-amber)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            <span>Como Desfazer a Mistura: A Chave Inversa no Código C</span>
+          </div>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">
+          Para decifrar o texto, precisamos da matriz inversa $K^{-1}$ (a receita que desfaz a mistura):
+          <br>
+          <strong style="color: #fff; font-family: var(--font-mono); font-size: 1.1rem;">K⁻¹ = (1 / det(K)) &times; adj(K) (mod 26)</strong>
+        </p>
+
+        <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 1.2rem;">
+          Mas em C não podemos fazer divisão fracionária para números que devem ser inteiros mod 26.
+          Olhe o que o autor do Gist (<code class="c-fn">tanayseven/9491684</code>) faz na função <code class="c-fn">Mat_add_num_till_divisible</code>:
+        </p>
+
+        <div class="code-container" style="margin-bottom: 1.5rem;">
+          <div class="code-header">
+            <span>trecho de tanayseven_hill_cipher.c</span>
+            <span>Função Mat_add_num_till_divisible</span>
+          </div>
+          <div class="code-content">
+<span class="c-cm">// Soma 26 repetidamente a cada elemento da adjunta até que ele seja exatamente divisível pelo det!</span>
+<span class="c-type">void</span> <span class="c-fn">Mat_add_num_till_divisible</span>(<span class="c-type">Matrix</span> mat, <span class="c-type">float</span> num, <span class="c-type">float</span> divisor) {
+    <span class="c-type">int</span> row_iter, col_iter;
+    <span class="c-kw">for</span> (row_iter = <span class="c-num">0</span>; row_iter &lt; mat.rows; ++row_iter) {
+        <span class="c-kw">for</span> (col_iter = <span class="c-num">0</span>; col_iter &lt; mat.columns; ++col_iter) {
+            <span class="c-kw">while</span> ((<span class="c-type">int</span>)<span class="c-fn">Mat_get_element</span>(mat, row_iter, col_iter) % (<span class="c-type">int</span>)divisor)
+                <span class="c-fn">Mat_set_element</span>(mat, row_iter, col_iter, <span class="c-fn">Mat_get_element</span>(mat, row_iter, col_iter) + num);
+        }
+    }
+}
+          </div>
+        </div>
+
+        <div class="callout callout-tip">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          <div>
+            Como somar 26 é congruente a 0 mod 26 (<code class="c-num">26 &equiv; 0 mod 26</code>), somar 26 repetidamente não altera o valor modular da matriz! Mas garante que a divisão inteira por <code class="c-num">det</code> seja 100% exata em C, sem casas decimais!
+          </div>
+        </div>
+
+        <div class="card" style="background: rgba(10, 15, 29, 0.85); margin-top: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); font-size: 1.1rem; color: #fff; margin-bottom: 0.8rem;">
+            🔬 Rastreamento Detalhado da Matriz Configurada Atual:
+          </h3>
+          <div id="decryption-math-trace">
+            <!-- Tabela detalhada das operações gerada via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- ABA 4: O PROJETO DE PARALELIZAÇÃO (PCD)                        -->
+    <!-- ============================================================== -->
+    <div id="tab-pcd-parallel" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-title">
+          <div class="card-title-icon">
+            <svg width="22" height="22" fill="var(--accent-cyan)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+            <span>Por que a Cifra de Hill é Perfeita para Paralelizar em PCD?</span>
+          </div>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.2rem;">
+          Aqui está o ponto central do trabalho do seu grupo na disciplina de <strong>Programação Concorrente e Distribuída</strong>:
+          <br>
+          Na Cifra de Hill, <strong>o Bloco 1 NÃO precisa do Bloco 2 para ser cifrado</strong>. Cada bloco de letras é 100% independente dos outros!
+        </p>
+
+        <div class="comparison-grid" style="margin-bottom: 1.5rem;">
+          <div class="comparison-box solution">
+            <h4 style="color: var(--accent-cyan);">🐢 Versão Sequencial (O Gist de Tanayseven)</h4>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">
+              Cifra o Bloco 1 &rarr; depois o Bloco 2 &rarr; depois o Bloco 3... até o Bloco 1.000.000.
+              <br>Se você tiver um texto gigante, 1 núcleo do processador fica sobrecarregado enquanto os outros núcleos ficam dormindo!
+            </p>
+          </div>
+
+          <div class="comparison-box solution">
+            <h4 style="color: var(--accent-emerald);">⚡ Versão Concorrente (Seu Projeto de PCD!)</h4>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">
+              Se você tem 4 núcleos (threads):
+              <br>&bull; Thread 0 cifra os blocos 1 a 250.000
+              <br>&bull; Thread 1 cifra os blocos 250.001 a 500.000
+              <br>&bull; Thread 2 cifra os blocos 500.001 a 750.000
+              <br>&bull; Thread 3 cifra os blocos 750.001 a 1.000.000
+              <br><strong>O tempo de execução cai quase 4 vezes!</strong>
+            </p>
+          </div>
+        </div>
+
+        <!-- Simulador Interativo de Desempenho e Speedup -->
+        <div class="card" style="background: rgba(10, 15, 29, 0.9); margin-top: 1.5rem;">
+          <h3 style="font-family: var(--font-heading); font-size: 1.15rem; color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+            <svg width="20" height="20" fill="var(--accent-cyan)" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+            Simulador de Speedup e Particionamento de Carga
+          </h3>
+
+          <div class="grid-2" style="margin-bottom: 1.2rem;">
+            <div>
+              <label class="form-label" for="pcd-text-len">Tamanho do Texto a Cifrar (número de caracteres):</label>
+              <select id="pcd-text-len" class="form-input">
+                <option value="10000">10.000 caracteres (~3.333 blocos)</option>
+                <option value="100000" selected>100.000 caracteres (~33.333 blocos)</option>
+                <option value="1000000">1.000.000 caracteres (~333.333 blocos)</option>
+                <option value="10000000">10.000.000 caracteres (~3.333.333 blocos)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label" for="pcd-threads-select">Número de Threads Paralelas (OpenMP / Core):</label>
+              <select id="pcd-threads-select" class="form-input">
+                <option value="2">2 Threads</option>
+                <option value="4" selected>4 Threads (Quad-Core)</option>
+                <option value="8">8 Threads (Octa-Core)</option>
+                <option value="16">16 Threads (High-End / Servidor)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Métricas Estimadas -->
+          <div class="grid-3" style="margin-bottom: 1.2rem;">
+            <div style="background: rgba(30, 41, 59, 0.5); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div style="font-size: 0.78rem; color: var(--text-dim);">Total de Blocos N&times;1:</div>
+              <div id="pcd-blocks-count" style="font-size: 1.4rem; font-family: var(--font-mono); font-weight: 700; color: #fff;">0</div>
+            </div>
+
+            <div style="background: rgba(30, 41, 59, 0.5); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div style="font-size: 0.78rem; color: var(--text-dim);">Tempo Sequencial Estimado:</div>
+              <div id="pcd-time-seq" style="font-size: 1.4rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent-rose);">0 ms</div>
+            </div>
+
+            <div style="background: rgba(30, 41, 59, 0.5); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div style="font-size: 0.78rem; color: var(--text-dim);">Tempo Paralelo Estimado:</div>
+              <div id="pcd-time-par" style="font-size: 1.4rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent-emerald);">0 ms</div>
+            </div>
+          </div>
+
+          <!-- Barra de Speedup -->
+          <div style="margin-bottom: 1.2rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+              <span>Speedup (Aceleração estimada com Lei de Amdahl):</span>
+              <strong id="pcd-speedup-badge" style="color: var(--accent-cyan);">0x mais rápido</strong>
+            </div>
+            <div class="speedup-meter">
+              <div id="pcd-speedup-bar" class="speedup-fill"></div>
+            </div>
+          </div>
+
+          <!-- Visualização das Threads -->
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.6rem;">
+              Divisão de Carga entre Threads (Mapeamento de Blocos em Memória):
+            </div>
+            <div class="thread-vis" id="pcd-threads-vis">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div style="max-width: 900px; margin: 0 auto;">
+      <p style="margin-bottom: 0.4rem;">
+        Projeto de Cifra de Hill Paralela &bull; Disciplina de <strong>Programação Concorrente e Distribuída (PCD)</strong> &bull; UNIFESP
+      </p>
+      <p style="font-size: 0.8rem; color: var(--text-dim);">
+        Baseado na implementação em C de Tanay PrabhuDesai (<a href="https://gist.github.com/tanayseven/9491684" target="_blank" rel="noreferrer">Gist 9491684</a>) e no repositório guia (<a href="https://github.com/mperlet/matrix_multiplication" target="_blank" rel="noreferrer">mperlet/matrix_multiplication</a>).
+      </p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

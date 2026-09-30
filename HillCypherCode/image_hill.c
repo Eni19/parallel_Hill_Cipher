@@ -1,4 +1,4 @@
-/* Cifra de Hill auto-invertivel para imagens P5/P6 de 8 bits.
+/* Cifra de Hill auto-invertivel para PNG/PGM/PPM de 8 bits.
  * Uso: image_hill (menu) ou image_hill <seq|omp|pthread> <threads> <seed> <entrada> <saida>
  * A mesma operacao cifra e decifra; finalidade didatica, sem seguranca moderna.
  */
@@ -11,6 +11,12 @@
 #include <string.h>
 #include <time.h>
 #include <limits.h>
+
+#define STBI_ONLY_PNG
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -99,6 +105,14 @@ static int number(const char *s, uint64_t *v) {
     return s[0] != '-' && s[0] && !*end && !errno;
 }
 
+static int png_name(const char *path) {
+    size_t n = strlen(path);
+    return n >= 4 && path[n - 4] == '.' &&
+           tolower((unsigned char)path[n - 3]) == 'p' &&
+           tolower((unsigned char)path[n - 2]) == 'n' &&
+           tolower((unsigned char)path[n - 1]) == 'g';
+}
+
 static double now(void) {
 #ifdef _OPENMP
     return omp_get_wtime();
@@ -138,6 +152,9 @@ static int ask(const char *question, char *value, size_t cap) {
 int main(int argc, char **argv) {
     FILE *in = NULL, *out = NULL;
     uint8_t *data = NULL;
+    void (*release_data)(void *) = free;
+    unsigned char signature[8];
+    const unsigned char png_signature[8] = {137, 80, 78, 71, 13, 10, 26, 10};
     char s[64];
     uint64_t parsed, seed;
     size_t width, height, bytes, blocks;
@@ -153,7 +170,7 @@ int main(int argc, char **argv) {
         uint64_t value;
         FILE *probe;
         int found;
-        puts("Cifra de Hill para imagens PGM P5 / PPM P6 (8 bits)");
+        puts("Cifra de Hill para imagens PNG / PGM P5 / PPM P6 (8 bits)");
         puts("A mesma operacao serve para cifrar e decifrar.\n");
         do {
             if (!ask("Operacao [1=cifrar, 2=decifrar]: ", choice, sizeof choice)) return 1;
@@ -192,14 +209,14 @@ int main(int argc, char **argv) {
             puts("Digite um inteiro decimal de 0 a 18446744073709551615.");
         } while (1);
         do {
-            if (!ask("Caminho da imagem de entrada (.pgm/.ppm): ", input_path, sizeof input_path)) return 1;
+            if (!ask("Caminho da imagem de entrada (.png/.pgm/.ppm): ", input_path, sizeof input_path)) return 1;
             probe = fopen(input_path, "rb");
             found = probe != NULL;
             if (probe) fclose(probe);
             else puts("Arquivo nao encontrado. Tente novamente.");
         } while (!found);
         do {
-            if (!ask("Caminho da imagem de saida (.pgm/.ppm): ", output_path, sizeof output_path)) return 1;
+            if (!ask("Caminho da imagem de saida (.png/.pgm/.ppm): ", output_path, sizeof output_path)) return 1;
             if (!strcmp(input_path, output_path)) puts("Use outro nome para preservar a entrada.");
         } while (!strcmp(input_path, output_path));
         interactive_args[0] = argv[0]; interactive_args[1] = (char *)mode;
@@ -211,22 +228,37 @@ int main(int argc, char **argv) {
     }
     if (argc != 6 || (strcmp(argv[1], "seq") && strcmp(argv[1], "omp") && strcmp(argv[1], "pthread")) ||
         !number(argv[2], &parsed) || parsed < 1 || parsed > INT_MAX) {
-        fprintf(stderr, "uso: %s <seq|omp|pthread> <threads> <seed> <entrada.pgm/ppm> <saida.pgm/ppm>\nsem argumentos: menu interativo\n", argv[0]);
+        fprintf(stderr, "uso: %s <seq|omp|pthread> <threads> <seed> <entrada.png/pgm/ppm> <saida.png/pgm/ppm>\nsem argumentos: menu interativo\n", argv[0]);
         return 1;
     }
     threads = (int)parsed;
     if (!number(argv[3], &seed) || !(in = fopen(argv[4], "rb"))) goto done;
-    if (!token(in, s, sizeof s) || (strcmp(s, "P5") && strcmp(s, "P6"))) goto done;
-    channels = s[1] == '6' ? 3 : 1;
-    if (!token(in, s, sizeof s) || !number(s, &parsed) || !parsed || parsed > SIZE_MAX) goto done;
-    width = (size_t)parsed;
-    if (!token(in, s, sizeof s) || !number(s, &parsed) || !parsed || parsed > SIZE_MAX) goto done;
-    height = (size_t)parsed;
-    if (!token(in, s, sizeof s) || strcmp(s, "255") || width > SIZE_MAX / height / (size_t)channels) goto done;
+    if (fread(signature, 1, sizeof signature, in) == sizeof signature &&
+        !memcmp(signature, png_signature, sizeof signature)) {
+        int w, h;
+        fclose(in); in = NULL;
+        if (stbi_is_16_bit(argv[4]) || !(data = stbi_load(argv[4], &w, &h, &channels, 0))) goto done;
+        release_data = stbi_image_free;
+        if (w < 1 || h < 1 || channels < 1 || channels > 4) goto done;
+        width = (size_t)w; height = (size_t)h;
+    } else {
+        rewind(in);
+        if (!token(in, s, sizeof s) || (strcmp(s, "P5") && strcmp(s, "P6"))) goto done;
+        channels = s[1] == '6' ? 3 : 1;
+        if (!token(in, s, sizeof s) || !number(s, &parsed) || !parsed || parsed > SIZE_MAX) goto done;
+        width = (size_t)parsed;
+        if (!token(in, s, sizeof s) || !number(s, &parsed) || !parsed || parsed > SIZE_MAX) goto done;
+        height = (size_t)parsed;
+        if (!token(in, s, sizeof s) || strcmp(s, "255")) goto done;
+    }
+    if (width > SIZE_MAX / height / (size_t)channels) goto done;
     bytes = width * height * (size_t)channels;
     blocks = bytes / 4 + (bytes % 4 != 0);
-    if (blocks > LLONG_MAX || !(data = malloc(bytes)) || fread(data, 1, bytes, in) != bytes || fgetc(in) != EOF) goto done;
-    fclose(in); in = NULL;
+    if (blocks > LLONG_MAX) goto done;
+    if (in) {
+        if (!(data = malloc(bytes)) || fread(data, 1, bytes, in) != bytes || fgetc(in) != EOF) goto done;
+        fclose(in); in = NULL;
+    }
     whole = (Job){data, 0, blocks, seed};
     start = now();
     if (!strcmp(argv[1], "seq")) run(&whole, bytes);
@@ -264,18 +296,24 @@ int main(int argc, char **argv) {
 #endif
     }
     elapsed = now() - start;
-    if (!(out = fopen(argv[5], "wb"))) goto done;
-    if (fprintf(out, "P%d\n%zu %zu\n255\n", channels == 3 ? 6 : 5, width, height) < 0 ||
-        fwrite(data, 1, bytes, out) != bytes) goto done;
-    if (fclose(out)) { out = NULL; goto done; }
-    out = NULL;
+    if (png_name(argv[5])) {
+        if (width > INT_MAX / (size_t)channels || height > INT_MAX ||
+            !stbi_write_png(argv[5], (int)width, (int)height, channels, data, (int)(width * (size_t)channels))) goto done;
+    } else {
+        if (channels != 1 && channels != 3) goto done;
+        if (!(out = fopen(argv[5], "wb"))) goto done;
+        if (fprintf(out, "P%d\n%zu %zu\n255\n", channels == 3 ? 6 : 5, width, height) < 0 ||
+            fwrite(data, 1, bytes, out) != bytes) goto done;
+        if (fclose(out)) { out = NULL; goto done; }
+        out = NULL;
+    }
     printf("modo=%s threads=%d bytes=%zu tempo_transformacao=%.6f s\n", argv[1], threads, bytes, elapsed);
     if (interactive) printf("Imagem %s salva em: %s\n", decrypt ? "decifrada" : "cifrada", argv[5]);
     ok = 1;
 done:
-    if (!ok) fprintf(stderr, "Erro: imagem P5/P6 invalida, E/S falhou ou modo indisponivel\n");
+    if (!ok) fprintf(stderr, "Erro: imagem PNG/PGM/PPM invalida, saida incompativel, E/S falhou ou modo indisponivel\n");
     if (in) fclose(in);
     if (out) fclose(out);
-    free(data);
+    release_data(data);
     return !ok;
 }

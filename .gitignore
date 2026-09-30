@@ -5,7 +5,10 @@
 *.out
 *.dll
 hill_test.exe
-
+*.exe
+*.ilk
+*.obj
+*.pdb
 # Logs e arquivos temporários
 *.log
 .vscode/

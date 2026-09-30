@@ -1,5 +1,5 @@
 /* Cifra de Hill auto-invertivel para imagens P5/P6 de 8 bits.
- * Uso: image_hill <seq|omp|pthread> <threads> <seed> <entrada> <saida>
+ * Uso: image_hill (menu) ou image_hill <seq|omp|pthread> <threads> <seed> <entrada> <saida>
  * A mesma operacao cifra e decifra; finalidade didatica, sem seguranca moderna.
  */
 #define _CRT_SECURE_NO_WARNINGS
@@ -109,6 +109,32 @@ static double now(void) {
 #endif
 }
 
+static int ask(const char *question, char *value, size_t cap) {
+    size_t len;
+    for (;;) {
+        fputs(question, stdout);
+        fflush(stdout);
+        if (!fgets(value, (int)cap, stdin)) return 0;
+        len = strcspn(value, "\r\n");
+        if (value[len] == 0) {
+            int c = getchar();
+            if (c != EOF) {
+                while (c != '\n' && c != EOF) c = getchar();
+                puts("Entrada muito longa. Tente novamente.");
+                continue;
+            }
+        }
+        value[len] = 0;
+        while (len && isspace((unsigned char)value[len - 1])) value[--len] = 0;
+        if (len >= 2 && value[0] == '"' && value[len - 1] == '"') {
+            memmove(value, value + 1, len - 2);
+            value[len - 2] = 0;
+        }
+        if (value[0]) return 1;
+        puts("Digite um valor.");
+    }
+}
+
 int main(int argc, char **argv) {
     FILE *in = NULL, *out = NULL;
     uint8_t *data = NULL;
@@ -118,9 +144,74 @@ int main(int argc, char **argv) {
     int channels, threads, ok = 0;
     double start, elapsed;
     Job whole;
+    char choice[16], thread_text[32], seed_text[32], input_path[1024], output_path[1024];
+    char *interactive_args[6];
+    int interactive = argc == 1;
+    int decrypt = 0;
+    if (interactive) {
+        const char *mode;
+        uint64_t value;
+        FILE *probe;
+        int found;
+        puts("Cifra de Hill para imagens PGM P5 / PPM P6 (8 bits)");
+        puts("A mesma operacao serve para cifrar e decifrar.\n");
+        do {
+            if (!ask("Operacao [1=cifrar, 2=decifrar]: ", choice, sizeof choice)) return 1;
+            if (strcmp(choice, "1") && strcmp(choice, "2")) puts("Escolha 1 ou 2.");
+        } while (strcmp(choice, "1") && strcmp(choice, "2"));
+        decrypt = !strcmp(choice, "2");
+        puts("Modos: 1=sequencial"
+#ifdef _OPENMP
+             ", 2=OpenMP"
+#endif
+#ifndef _WIN32
+             ", 3=Pthreads"
+#endif
+        );
+        do {
+            if (!ask("Escolha o modo: ", choice, sizeof choice)) return 1;
+            mode = !strcmp(choice, "1") ? "seq" :
+#ifdef _OPENMP
+                   !strcmp(choice, "2") ? "omp" :
+#endif
+#ifndef _WIN32
+                   !strcmp(choice, "3") ? "pthread" :
+#endif
+                   NULL;
+            if (!mode) puts("Escolha uma das opcoes mostradas.");
+        } while (!mode);
+        if (!strcmp(mode, "seq")) strcpy(thread_text, "1");
+        else do {
+            if (!ask("Numero de threads: ", thread_text, sizeof thread_text)) return 1;
+            if (number(thread_text, &value) && value >= 1 && value <= INT_MAX) break;
+            puts("Digite um inteiro positivo.");
+        } while (1);
+        do {
+            if (!ask("Semente decimal (use a mesma na volta): ", seed_text, sizeof seed_text)) return 1;
+            if (number(seed_text, &value)) break;
+            puts("Digite um inteiro decimal de 0 a 18446744073709551615.");
+        } while (1);
+        do {
+            if (!ask("Caminho da imagem de entrada (.pgm/.ppm): ", input_path, sizeof input_path)) return 1;
+            probe = fopen(input_path, "rb");
+            found = probe != NULL;
+            if (probe) fclose(probe);
+            else puts("Arquivo nao encontrado. Tente novamente.");
+        } while (!found);
+        do {
+            if (!ask("Caminho da imagem de saida (.pgm/.ppm): ", output_path, sizeof output_path)) return 1;
+            if (!strcmp(input_path, output_path)) puts("Use outro nome para preservar a entrada.");
+        } while (!strcmp(input_path, output_path));
+        interactive_args[0] = argv[0]; interactive_args[1] = (char *)mode;
+        interactive_args[2] = thread_text; interactive_args[3] = seed_text;
+        interactive_args[4] = input_path; interactive_args[5] = output_path;
+        argv = interactive_args;
+        argc = 6;
+        puts(decrypt ? "\nDecifrando..." : "\nCifrando...");
+    }
     if (argc != 6 || (strcmp(argv[1], "seq") && strcmp(argv[1], "omp") && strcmp(argv[1], "pthread")) ||
         !number(argv[2], &parsed) || parsed < 1 || parsed > INT_MAX) {
-        fprintf(stderr, "uso: %s <seq|omp|pthread> <threads> <seed> <entrada.pgm/ppm> <saida.pgm/ppm>\n", argv[0]);
+        fprintf(stderr, "uso: %s <seq|omp|pthread> <threads> <seed> <entrada.pgm/ppm> <saida.pgm/ppm>\nsem argumentos: menu interativo\n", argv[0]);
         return 1;
     }
     threads = (int)parsed;
@@ -179,6 +270,7 @@ int main(int argc, char **argv) {
     if (fclose(out)) { out = NULL; goto done; }
     out = NULL;
     printf("modo=%s threads=%d bytes=%zu tempo_transformacao=%.6f s\n", argv[1], threads, bytes, elapsed);
+    if (interactive) printf("Imagem %s salva em: %s\n", decrypt ? "decifrada" : "cifrada", argv[5]);
     ok = 1;
 done:
     if (!ok) fprintf(stderr, "Erro: imagem P5/P6 invalida, E/S falhou ou modo indisponivel\n");

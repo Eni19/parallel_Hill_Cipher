@@ -1,7 +1,37 @@
 # 🔐 Cifra de Hill Paralela (PCD - UNIFESP)
 
 > Projeto desenvolvido para a disciplina de **Programação Concorrente e Distribuída (PCD)** da Universidade Federal de São Paulo (**UNIFESP**).  
-> **Objetivo:** Compreender, implementar, analisar e paralelizar o algoritmo de criptografia e decriptografia da **Cifra de Hill** em arquiteturas multicore e distribuídas.
+> **Objetivo atual:** comparar a execução sequencial, OpenMP e Pthreads da **Cifra de Hill aplicada a imagens** em memória compartilhada. O simulador de texto continua como introdução didática.
+
+## Experimento com imagens
+
+O arquivo [HillCypherCode/image_hill.c](HillCypherCode/image_hill.c) transforma imagens **PGM P5 ou PPM P6 de 8 bits**, sem compressão. Cada bloco de quatro bytes recebe uma matriz gerada de uma semente numérica e do índice do bloco:
+
+$$K=\begin{bmatrix}A&I-A^2\\I&-A\end{bmatrix}\pmod{256},\qquad K^2=I\pmod{256}.$$
+
+A mesma operação cifra e decifra. Os blocos finais de 1 a 3 bytes usam matrizes auto-invertíveis menores. O resultado independe da quantidade de threads. O programa preserva dimensões e pixels recuperados, mas reescreve o cabeçalho PNM e não preserva comentários/metadados.
+
+Compilação em Linux ou outro ambiente POSIX com GCC:
+
+```bash
+gcc -O2 -std=c11 -fopenmp -pthread HillCypherCode/image_hill.c -o image_hill
+```
+
+No Prompt de Desenvolvedor do Visual Studio no Windows, a versão sequencial e OpenMP podem ser compiladas com:
+
+```text
+cl /O2 /std:c11 /openmp HillCypherCode\image_hill.c /Fe:image_hill.exe
+```
+
+Uso (a mesma semente decimal nas duas chamadas):
+
+```bash
+./image_hill seq 1 123 entrada.ppm cifrada.ppm
+./image_hill omp 4 123 cifrada.ppm recuperada.ppm
+./image_hill pthread 4 123 entrada.ppm cifrada_pthreads.ppm
+```
+
+O programa imprime o tempo **somente da transformação em memória**; leitura e escrita ficam fora dessa medida. O teste [tests/test_image_hill.py](tests/test_image_hill.py) verifica recuperação exata e equivalência entre modos. Sequencial e OpenMP foram compilados e testados no Windows; a execução Pthreads ainda precisa de validação em ambiente POSIX. A semente e a cifra têm finalidade experimental e não constituem proteção criptográfica moderna. O [esboço atualizado do artigo](Artigo_PCD_SBC_Esboço_Imagens.docx) descreve o plano de medições, ainda sem resultados.
 
 ---
 
@@ -55,7 +85,7 @@ Como $26 \equiv 0 \pmod{26}$, o valor modular é preservado e a divisão inteira
 
 Para permitir que qualquer integrante do grupo (ou o professor) compreenda o algoritmo antes de inspecionar o código, criamos uma aplicação web completa e interativa:
 
-### Recursos do Site (3 Módulos Didáticos):
+### Recursos do Site (4 Módulos Didáticos):
 1. **1. O que é & Como Funciona (Aprenda do Zero):**
    - Explicação histórica e intuitiva do objetivo da cifra poligráfica.
    - Régua interativa do alfabeto ($A=0 \dots Z=25$).
@@ -73,6 +103,12 @@ Para permitir que qualquer integrante do grupo (ou o professor) compreenda o alg
    - A Solução do Relógio (+26) e como a função `Mat_add_num_till_divisible` em C resolve isso sem aproximações.
    - Os 4 passos matemáticos da inversão (Determinante, Cofatores, Adjunta e Ajuste).
    - Tabela de rastreamento ao vivo para as 9 posições da matriz ativa.
+4. **4. Imagens e Paralelismo:**
+   - Guia para iniciantes sobre pixels, canais RGB, blocos, módulo 256, matriz auto invertível e threads.
+   - Carregamento de PNG/JPEG/PGM/PPM ou imagem de exemplo, com prévias de entrada e saída.
+   - Cifragem e decifragem em Web Workers, usando a mesma geração de matrizes do código C.
+   - Matriz e multiplicação linha por linha do bloco selecionado, divisão estática dos blocos entre workers e download em PNG ou PGM/PPM.
+   - O tempo mostrado pertence ao navegador; os benchmarks do artigo devem usar o programa C.
 
 ### Como rodar a aplicação web:
 ```bash
@@ -82,7 +118,7 @@ python -m http.server 8085
 # Opção 2: Usando Node.js
 npx serve .
 ```
-Acesse no navegador: **`http://localhost:8085`** (ou abra `index.html` diretamente).
+Acesse no navegador: **`http://localhost:8085`**. A aba de imagens usa módulos JavaScript e Web Workers, por isso precisa de um servidor local.
 
 ---
 
@@ -128,8 +164,16 @@ parallel_Hill_Cipher/
 ├── index.html                  # Interface gráfica do simulador e tutorial
 ├── style.css                   # Design system dark mode com glassmorphism
 ├── app.js                      # Motor JS fiel às funções C de Tanayseven
+├── image-core.mjs              # Matrizes e transformação de bytes compatíveis com C
+├── image-worker.mjs            # Execução paralela no navegador
+├── image-demo.mjs              # Interface do laboratório de imagens
 ├── tanayseven_hill_cipher.c    # Código em C de referência compilável
-├── README.md                   # Documentação completa do projeto
+├── HillCypherCode/
+│   ├── hillcypherOMP.c         # Experimento anterior com texto modulo 26
+│   └── image_hill.c            # Cifra experimental de imagens seq/OMP/Pthreads
+├── tests/test_image_hill.py    # Testes de recuperacao e equivalencia
+├── Artigo_PCD_SBC_Esboço_Imagens.docx # Esboço do artigo atualizado
+├── README.md                   # Guia do projeto
 └── .gitignore                  # Filtro para binários e temporários
 ```
 

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cifra de Hill Didática | Guia Visual & Laboratório Interativo (PCD - UNIFESP)</title>
-  <meta name="description" content="Aprenda a Cifra de Hill do zero com matrizes ilustradas e experimente o laboratório interativo integrado para o projeto de Programação Concorrente e Distribuída (PCD).">
+  <title>Cifra de Hill Paralela | Texto, Imagens e Laboratório (PCD - UNIFESP)</title>
+  <meta name="description" content="Explore a Cifra de Hill em texto e imagens, matrizes auto invertíveis e a divisão de blocos entre threads no projeto de PCD da UNIFESP.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,15 +25,19 @@
       <nav class="nav-links">
         <button class="nav-btn active" data-tab="tab-learn-story">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/></svg>
-          1. O que é & Como Funciona
+          1. Como funciona
         </button>
         <button class="nav-btn" data-tab="tab-simulator">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
-          2. Laboratório Interativo
+          2. Laboratório de texto
         </button>
         <button class="nav-btn" data-tab="tab-decryption-trick">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/></svg>
-          3. Como Desfazer a Cifra (A Inversa em C)
+          3. Inversa em C
+        </button>
+        <button class="nav-btn" data-tab="tab-images">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3h14a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V5a2 2 0 012-2zm0 2v10h14V5H3zm2 8 3-4 2 2 2-3 3 5H5z"/></svg>
+          4. Imagens &amp; Paralelismo
         </button>
       </nav>
     </div>
@@ -643,6 +647,133 @@
 
     </div>
 
+    <div id="tab-images" class="tab-content">
+      <section class="story-hero image-hero">
+        <span class="step-badge">Novo experimento &bull; módulo 256</span>
+        <h2>Da matriz aos pixels</h2>
+        <p>Carregue uma imagem, transforme seus bytes em blocos de quatro e aplique a mesma matriz para cifrar e decifrar. Explore como OpenMP e Pthreads dividem os blocos na implementação em C.</p>
+      </section>
+
+      <div class="image-flow" aria-label="Etapas da transformação">
+        <div><strong>01</strong><span>Semente + índice</span><small>geram a submatriz A</small></div>
+        <div><strong>02</strong><span>Matriz K</span><small>K² = I (mod 256)</small></div>
+        <div><strong>03</strong><span>Blocos de bytes</span><small>C = KP (mod 256)</small></div>
+        <div><strong>04</strong><span>Threads</span><small>intervalos independentes</small></div>
+      </div>
+
+      <section class="timeline-card image-guide">
+        <span class="step-badge">Comece por aqui</span>
+        <h3 class="timeline-title">O que acontece com a imagem?</h3>
+        <p class="image-guide-intro">Pense na imagem como uma lista de números. O programa combina esses números usando uma matriz; para recuperar a imagem, aplica a mesma matriz uma segunda vez.</p>
+        <div class="image-guide-grid">
+          <article class="image-guide-step">
+            <span class="image-guide-number">1</span>
+            <h4>Um pixel vira números</h4>
+            <p>Em uma imagem colorida, cada pixel tem três canais: vermelho, verde e azul. Cada canal vai de <strong>0 a 255</strong>. Por exemplo, <code>(255, 0, 0)</code> é vermelho. Uma imagem cinza PGM usa um número por pixel.</p>
+            <div class="image-rgb-demo" aria-label="Exemplo de pixel vermelho"><span>R <b>255</b></span><span>G <b>0</b></span><span>B <b>0</b></span><i></i></div>
+          </article>
+          <article class="image-guide-step">
+            <span class="image-guide-number">2</span>
+            <h4>Quatro bytes formam um bloco</h4>
+            <p>O programa lê <strong>quatro valores seguidos</strong> dos canais e os coloca em uma coluna de números chamada vetor, como <code>P = [12, 90, 200, 35]</code>. O bloco pode atravessar a fronteira entre pixels. No fim, grupos menores também são tratados sem perder bytes.</p>
+            <div class="image-byte-demo"><span>12</span><span>90</span><span>200</span><span>35</span><strong>→ bloco P</strong></div>
+          </article>
+          <article class="image-guide-step">
+            <span class="image-guide-number">3</span>
+            <h4>A semente monta a chave</h4>
+            <p>A <strong>semente</strong> é o número que você digita. Ela e a posição do bloco geram uma tabela de números 2 × 2, chamada matriz <code>A</code>. Uma regra fixa monta a matriz 4 × 4 <code>K</code>. A mesma semente e a mesma posição sempre geram a mesma <code>K</code>.</p>
+          </article>
+          <article class="image-guide-step">
+            <span class="image-guide-number">4</span>
+            <h4>A matriz transforma o bloco</h4>
+            <p>Cada uma das quatro linhas de <code>K</code> multiplica os quatro valores de <code>P</code> e soma os produtos. Fica apenas o <strong>resto da divisão por 256</strong>. Assim, todo valor volta à faixa de 0 a 255: <code>300 mod 256 = 44</code>.</p>
+            <div class="image-mod-demo"><span>300</span><span>− 256</span><strong>= 44</strong></div>
+          </article>
+          <article class="image-guide-step">
+            <span class="image-guide-number">5</span>
+            <h4>A mesma operação recupera</h4>
+            <p>A chave foi construída para que <code>K × K = I</code>. <code>I</code> é a matriz identidade: multiplicar por ela deixa os números como estavam. Por isso, <code>K × (K × P) = P</code>. É preciso usar a <strong>mesma semente</strong>.</p>
+          </article>
+          <article class="image-guide-step">
+            <span class="image-guide-number">6</span>
+            <h4>As threads dividem o serviço</h4>
+            <p>Um bloco não precisa esperar pelo outro. Cada thread recebe um intervalo de blocos, calcula seus resultados e escreve em posições distintas. Depois que todas terminam, a imagem de saída está completa.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="image-howto" aria-labelledby="image-howto-title">
+        <div><span class="step-badge">Experimente em 4 passos</span><h3 id="image-howto-title">Veja a ida e a volta</h3></div>
+        <ol>
+          <li>Use a imagem de exemplo ou carregue uma sua.</li>
+          <li>Mantenha a semente e clique em <strong>Cifrar imagem</strong>.</li>
+          <li>Clique em <strong>Usar resultado como entrada</strong>.</li>
+          <li>Clique em <strong>Decifrar imagem</strong> e confira “Pixels recuperados”.</li>
+        </ol>
+      </section>
+
+      <section class="timeline-card image-lab">
+        <div class="image-section-head">
+          <div>
+            <span class="step-badge">Laboratório de imagens</span>
+            <h3 class="timeline-title">Cifre e recupere uma imagem</h3>
+            <p>Use uma imagem de exemplo ou envie PNG, JPEG, PGM ou PPM. PNG e JPEG são convertidos para RGB de 8 bits; PGM permanece em tons de cinza.</p>
+          </div>
+          <span class="image-mode-pill">Mesmo K nos dois sentidos</span>
+        </div>
+
+        <div class="image-controls">
+          <label class="image-upload" for="image-file">Carregar imagem<input id="image-file" type="file" accept="image/*,.pgm,.ppm"></label>
+          <button id="image-sample" class="btn-secondary" type="button">Usar exemplo</button>
+          <label class="image-field" for="image-seed">Semente decimal<input id="image-seed" type="text" inputmode="numeric" value="123456789" aria-describedby="image-seed-hint"></label>
+          <label class="image-field" for="image-threads">Workers no navegador <output id="image-thread-value">4</output><input id="image-threads" type="range" min="1" max="8" value="4"></label>
+        </div>
+        <p id="image-seed-hint" class="image-hint">A semente é didática. Use a mesma ao decifrar. O navegador usa Web Workers; o programa C usa OpenMP ou Pthreads.</p>
+
+        <div class="image-actions">
+          <button id="image-encrypt" class="btn-primary" type="button">Cifrar imagem</button>
+          <button id="image-decrypt" class="btn-secondary" type="button">Decifrar imagem</button>
+          <button id="image-reuse" class="btn-secondary" type="button" disabled>Usar resultado como entrada</button>
+          <button id="image-download" class="btn-secondary" type="button" disabled>Baixar resultado PNG</button>
+          <button id="image-download-pnm" class="btn-secondary" type="button" disabled>Baixar PGM/PPM para C</button>
+        </div>
+        <p id="image-status" class="image-status" role="status" aria-live="polite">Carregando imagem de exemplo…</p>
+
+        <div class="image-preview-grid">
+          <figure><div class="image-canvas-wrap"><canvas id="image-input-canvas"></canvas></div><figcaption id="image-input-caption">Entrada</figcaption></figure>
+          <figure><div class="image-canvas-wrap"><canvas id="image-output-canvas"></canvas></div><figcaption id="image-output-caption">Resultado</figcaption></figure>
+        </div>
+        <div class="image-stats">
+          <div><span>Dimensão</span><strong id="image-dimensions">—</strong></div>
+          <div><span>Blocos</span><strong id="image-blocks">—</strong></div>
+          <div><span>Tempo no navegador</span><strong id="image-time">—</strong></div>
+          <div><span>Verificação</span><strong id="image-check">—</strong></div>
+        </div>
+      </section>
+
+      <div class="image-explain-grid">
+        <section class="timeline-card">
+          <span class="step-badge">Álgebra</span>
+          <h3 class="timeline-title">A chave se desfaz sozinha</h3>
+          <p>Os números da submatriz A podem variar. A construção fixa abaixo garante K × K = I módulo 256, por isso a decifragem repete a multiplicação.</p>
+          <div class="image-formula">K = [ A &nbsp; I − A² ; &nbsp; I &nbsp; −A ] &nbsp; (mod 256)</div>
+          <p class="image-formula-help"><strong>Leia assim:</strong> primeiro geramos A; depois montamos K com quatro partes. A regra faz K × K virar a identidade, qualquer que seja A. O bloco selecionado abaixo mostra os números concretos.</p>
+          <div class="image-block-nav"><button id="image-prev-block" class="btn-secondary" type="button">←</button><span id="image-block-label">Bloco 1</span><button id="image-next-block" class="btn-secondary" type="button">→</button></div>
+          <div class="image-matrix-area"><div><small>Matriz K do bloco</small><div id="image-key-matrix" class="image-mini-matrix"></div></div><div><small>Entrada → saída</small><div id="image-block-bytes" class="image-byte-line">—</div><small id="image-owner">—</small></div></div>
+          <div class="image-live-calc"><h4>Faça a conta deste bloco</h4><p>Cada linha de K produz um valor de saída. Multiplique, some e tire o resto por 256:</p><div id="image-math-trace"></div></div>
+        </section>
+        <section class="timeline-card">
+          <span class="step-badge">Paralelização</span>
+          <h3 class="timeline-title">Cada thread recebe um intervalo</h3>
+          <p>O escalonamento estático do OpenMP e a divisão por intervalos do Pthreads percorrem blocos distintos. A matriz depende do índice do bloco, então o resultado permanece igual com 1 ou 8 threads.</p>
+          <div id="image-thread-map" class="image-thread-map"></div>
+          <p class="image-thread-example">No desenho, cada barra colorida representa a parte da imagem atribuída a uma thread. Alterar o controle “Workers no navegador” muda a divisão, mas não os bytes produzidos.</p>
+          <p class="image-hint">A tela executa Web Workers para demonstrar o paralelismo no navegador. Os tempos aqui incluem criação dos workers e não são resultados de benchmark do código C.</p>
+        </section>
+      </div>
+      <p class="image-safety-note">Protótipo acadêmico: a cifra linear e a semente numérica não oferecem segurança criptográfica moderna. Para os experimentos do artigo, use as versões C e meça cada modo no mesmo hardware.</p>
+    </div>
+
   </main>
 
   <!-- Footer -->
@@ -658,5 +789,6 @@
   </footer>
 
   <script src="app.js"></script>
+  <script type="module" src="image-demo.mjs"></script>
 </body>
 </html>

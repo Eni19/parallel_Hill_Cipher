@@ -15,3 +15,14 @@ hill_test.exe
 .idea/
 .DS_Store
 Thumbs.db
+
+# Binarios e videos de teste
+image_hill
+video_hill
+*.mkv
+
+# Laboratorio de video (gerado por server.py)
+video_lab/
+demo/
+__pycache__/
+.claude/

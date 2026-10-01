@@ -39,6 +39,10 @@
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3h14a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V5a2 2 0 012-2zm0 2v10h14V5H3zm2 8 3-4 2 2 2-3 3 5H5z"/></svg>
           4. Imagens &amp; Paralelismo
         </button>
+        <button class="nav-btn" data-tab="tab-video">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm12.553 1.106A1 1 0 0014 7v6a1 1 0 00.553.894l2 1A1 1 0 0018 14V6a1 1 0 00-1.447-.894l-2 1z"/></svg>
+          5. Vídeo &amp; Benchmarks
+        </button>
       </nav>
     </div>
   </header>
@@ -774,6 +778,175 @@
       <p class="image-safety-note">Protótipo acadêmico: a cifra linear e a semente numérica não oferecem segurança criptográfica moderna. Para os experimentos do artigo, use as versões C e meça cada modo no mesmo hardware.</p>
     </div>
 
+    <!-- ============================================================== -->
+    <!-- ABA 5: VÍDEO E BENCHMARKS (executa video_hill via server.py)    -->
+    <!-- ============================================================== -->
+    <div id="tab-video" class="tab-content">
+      <section class="story-hero video-hero">
+        <span class="step-badge">Programa C &bull; OpenMP &bull; FFmpeg</span>
+        <h2>Vídeo cifrado quadro a quadro</h2>
+        <p>O programa <code>video_hill</code> aplica a mesma cifra das imagens a cada quadro do vídeo. Aqui você roda o programa C de verdade na sua máquina, compara o vídeo antes e depois e mede como o número de threads muda o tempo.</p>
+      </section>
+
+      <div class="image-flow" aria-label="Etapas do processamento de vídeo">
+        <div><strong>01</strong><span>Decodificar</span><small>FFmpeg entrega quadros brutos</small></div>
+        <div><strong>02</strong><span>Cifrar</span><small>threads dividem os blocos</small></div>
+        <div><strong>03</strong><span>Gravar</span><small>sem perdas, para poder decifrar</small></div>
+        <div><strong>04</strong><span>Pipeline</span><small>ler, cifrar e gravar ao mesmo tempo</small></div>
+      </div>
+
+      <p id="video-server" class="video-banner" role="status">Verificando o servidor local…</p>
+
+      <section class="timeline-card video-modes">
+        <span class="step-badge">Antes de rodar</span>
+        <h3 class="timeline-title">O que muda entre seq, omp e pipeline?</h3>
+        <p>Os três modos fazem as mesmas três etapas com cada quadro: <strong>ler</strong> (receber o quadro do FFmpeg), <strong>cifrar</strong> e <strong>gravar</strong>. O resultado cifrado é idêntico nos três. O que muda é <strong>quem faz cada etapa e quando</strong>.</p>
+        <div class="video-legend" id="mode-legend"></div>
+        <div id="mode-timelines" class="mode-timelines"></div>
+        <p class="image-hint">Desenho esquemático com 3 quadros: ler e gravar valem 1 unidade de tempo e cifrar vale 3 unidades com uma thread. Ele mostra o caso ideal. Na prática o ganho é menor, porque as threads disputam os núcleos com o FFmpeg (veja o benchmark abaixo).</p>
+        <div class="mode-cards">
+          <article>
+            <h4>seq</h4>
+            <p>Uma única thread lê, cifra e grava, um quadro depois do outro. É a base de comparação.</p>
+          </article>
+          <article>
+            <h4>omp <small>(parallel for)</small></h4>
+            <p>Só a cifra é dividida: <code>#pragma omp parallel for</code> reparte os blocos de cada quadro entre as N threads. Ler e gravar continuam com uma thread só; enquanto isso, as outras ficam esperando.</p>
+          </article>
+          <article>
+            <h4>pipeline <small>(linha de montagem)</small></h4>
+            <p>Cada thread tem uma função fixa: uma só lê, uma só grava e N só cifram. Enquanto o quadro 1 é cifrado, o quadro 2 já está sendo lido e o 0 está sendo gravado. Três buffers se revezam, e uma barreira separa cada passo.</p>
+          </article>
+        </div>
+        <div class="mode-threads">
+          <h4>O que significa “3+2”?</h4>
+          <p>O número escolhido é sempre o de <strong>threads de cifra</strong>. O pipeline acrescenta <strong>+2</strong> threads de entrada e saída (uma leitora e uma gravadora). Assim, <code>pipeline 3+2</code> cria 5 threads.</p>
+          <div class="video-table-wrap">
+            <table class="video-table">
+              <thead><tr><th scope="col">Comando</th><th scope="col">Threads criadas</th><th scope="col">Quem faz o quê</th></tr></thead>
+              <tbody>
+                <tr><th scope="row"><code>seq</code></th><td>1</td><td>a mesma thread lê, cifra e grava</td></tr>
+                <tr><th scope="row"><code>omp 3</code></th><td>3</td><td>as 3 cifram juntas; a thread principal também lê e grava, enquanto as outras esperam</td></tr>
+                <tr><th scope="row"><code>pipeline 3</code> (3+2)</th><td>5</td><td>3 só cifram, 1 só lê, 1 só grava, todas ao mesmo tempo</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="timeline-card video-lab">
+        <div class="image-section-head">
+          <div>
+            <span class="step-badge">Laboratório de vídeo</span>
+            <h3 class="timeline-title">Cifre e recupere um trecho</h3>
+            <p id="video-source">Usa o arquivo <code>video.mp4</code> da pasta do projeto.</p>
+          </div>
+          <span class="image-mode-pill">Mesma semente nos dois sentidos</span>
+        </div>
+
+        <div class="video-controls">
+          <label class="image-field" for="video-mode">Modo
+            <select id="video-mode">
+              <option value="seq">seq: sequencial</option>
+              <option value="omp">omp: parallel for</option>
+              <option value="pipeline" selected>pipeline: E/S sobreposta</option>
+            </select>
+          </label>
+          <label class="image-field" for="video-threads">Threads de cifra <output id="video-threads-value">3</output><input id="video-threads" type="range" min="1" max="8" value="3"></label>
+          <label class="image-field" for="video-seed">Semente<input id="video-seed" type="text" inputmode="numeric" value="123"></label>
+          <label class="image-field" for="video-start">Início (s)<input id="video-start" type="number" min="0" value="20"></label>
+          <label class="image-field" for="video-seconds">Duração (s)<input id="video-seconds" type="number" min="1" max="30" value="8"></label>
+        </div>
+        <p id="video-threads-hint" class="image-hint">No pipeline, o programa usa estas threads para a cifra e mais 2 para leitura e gravação.</p>
+
+        <div class="image-actions">
+          <button id="video-run" class="btn-primary" type="button">Cifrar e decifrar</button>
+          <button id="video-cancel" class="btn-secondary" type="button" hidden>Cancelar</button>
+        </div>
+        <div class="video-progress" aria-hidden="true"><div id="video-progress-bar"></div></div>
+        <p id="video-status" class="image-status" role="status" aria-live="polite"></p>
+
+        <div class="video-players">
+          <figure><video id="video-original" muted playsinline preload="metadata"></video><figcaption>Original</figcaption></figure>
+          <figure><video id="video-cifrado" muted playsinline preload="metadata"></video><figcaption>Cifrado</figcaption></figure>
+          <figure><video id="video-decifrado" muted playsinline preload="metadata"></video><figcaption>Decifrado</figcaption></figure>
+        </div>
+        <div class="video-sync">
+          <button id="video-play" class="btn-secondary" type="button" disabled>Reproduzir os três</button>
+          <input id="video-seek" type="range" min="0" max="1000" value="0" aria-label="Posição nos três vídeos" disabled>
+          <span id="video-time" class="video-time">0,0 s</span>
+        </div>
+        <p class="image-hint">As prévias são reduzidas e comprimidas só para exibição. A verificação compara os quadros dos arquivos sem perdas.</p>
+
+        <div id="video-check" class="video-check" hidden></div>
+        <div class="video-table-wrap">
+          <table class="video-table" id="video-stats">
+            <caption>Medições impressas por <code>video_hill</code> nesta execução. Os tempos mudam um pouco a cada vez; para comparar modos, use o benchmark.</caption>
+            <thead><tr><th scope="col">Medida</th><th scope="col">Cifrar</th><th scope="col">Decifrar</th></tr></thead>
+            <tbody><tr><td colspan="3">Rode o laboratório para ver os tempos.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="timeline-card video-analysis">
+        <span class="step-badge">Análise visual do quadro</span>
+        <h3 class="timeline-title">O cifrado parece ruído?</h3>
+        <p>Uma boa cifra espalha os valores por toda a faixa 0–255 (entropia perto de 8 bits) e destrói a semelhança entre vizinhos (correlação perto de 0). Os gráficos comparam o quadro do meio do trecho, plano a plano: Y é o brilho; U e V são a cor.</p>
+        <div id="video-metrics" class="video-metrics"></div>
+        <div class="video-legend" id="video-hist-legend"></div>
+        <div id="video-hists" class="video-hists"><p class="image-hint">Rode o laboratório para analisar um quadro.</p></div>
+        <p id="video-leak" class="video-note" hidden></p>
+      </section>
+
+      <section class="timeline-card video-bench">
+        <span class="step-badge">Benchmark</span>
+        <h3 class="timeline-title">Tempo × número de threads</h3>
+        <p>Cada configuração roda várias vezes, em ordem embaralhada, sobre o mesmo trecho. O <code>seq</code> sempre entra, porque é a base do speedup. Os pontos mostram a mediana; as barras finas, o menor e o maior tempo.</p>
+        <p class="video-note-info"><strong>Os gráficos são gerados com dados reais.</strong> Cada clique em “Rodar benchmark” executa o programa C de novo e salva uma nova <em>rodada</em> em <code>video_lab/benchmarks.json</code>; as rodadas anteriores continuam disponíveis em “Rodada”. Os tempos variam entre execuções: outros programas abertos, temperatura e frequência do processador e o próprio FFmpeg interferem. Por isso cada configuração se repete e o gráfico usa a mediana. Diferenças menores que a faixa entre o mínimo e o máximo não devem ser tratadas como conclusão. A análise do quadro, ao contrário, sempre dá o mesmo resultado para o mesmo trecho e a mesma semente.</p>
+        <div class="video-bench-controls">
+          <fieldset class="video-fieldset"><legend>Modos</legend>
+            <label><input type="checkbox" checked disabled> seq</label>
+            <label><input type="checkbox" name="bench-mode" value="omp" checked> omp</label>
+            <label><input type="checkbox" name="bench-mode" value="pipeline" checked> pipeline</label>
+          </fieldset>
+          <fieldset class="video-fieldset"><legend>Threads de cifra</legend><div id="bench-threads"></div></fieldset>
+          <label class="image-field" for="bench-reps">Repetições<input id="bench-reps" type="number" min="1" max="20" value="3"></label>
+          <label class="image-field" for="bench-seconds">Duração (s)<input id="bench-seconds" type="number" min="1" max="30" value="8"></label>
+          <label class="video-toggle"><input id="bench-discard" type="checkbox" checked> Descartar a saída (mede sem o disco)</label>
+        </div>
+        <div class="image-actions">
+          <button id="bench-run" class="btn-primary" type="button">Rodar benchmark</button>
+          <span id="bench-estimate" class="video-time"></span>
+        </div>
+
+        <div class="video-filter-row">
+          <label class="image-field" for="bench-batch">Rodada<select id="bench-batch"></select></label>
+          <label class="image-field" for="bench-metric">Medida<select id="bench-metric">
+            <option value="tempo_total">Tempo total</option>
+            <option value="cifra">Tempo da cifra</option>
+            <option value="fps">Quadros por segundo</option>
+          </select></label>
+          <p id="bench-meta" class="image-hint"></p>
+        </div>
+        <div class="video-legend" id="bench-legend"></div>
+        <div class="video-charts">
+          <figure class="video-chart"><figcaption id="chart-time-title">Tempo total por número de threads</figcaption><div id="chart-time"></div></figure>
+          <figure class="video-chart"><figcaption id="chart-speedup-title">Speedup sobre o seq</figcaption><div id="chart-speedup"></div></figure>
+        </div>
+        <figure class="video-chart video-chart-wide">
+          <figcaption>Para onde vai o tempo: etapas de cada configuração</figcaption>
+          <div class="video-legend" id="stage-legend"></div>
+          <div id="chart-stages"></div>
+          <p class="image-hint">Cada barra soma o tempo ocupado em leitura, cifra e gravação; o traço branco marca o tempo total. No pipeline, as etapas acontecem ao mesmo tempo, então a soma pode passar do total.</p>
+        </figure>
+        <details class="video-details">
+          <summary>Tabela com todos os valores</summary>
+          <div class="video-table-wrap"><table class="video-table" id="bench-table"></table></div>
+        </details>
+      </section>
+      <div id="video-tooltip" class="video-tooltip" role="tooltip" hidden></div>
+    </div>
+
   </main>
 
   <!-- Footer -->
@@ -790,5 +963,6 @@
 
   <script src="app.js"></script>
   <script type="module" src="image-demo.mjs"></script>
+  <script type="module" src="video-lab.mjs"></script>
 </body>
 </html>

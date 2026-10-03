@@ -1,6 +1,7 @@
 // Laboratorio de video: conversa com server.py, que executa video_hill e o FFmpeg na maquina local.
 const $ = id => document.getElementById(id);
-const MODE_COLORS = { seq: '#3987e5', omp: '#d95926', pipeline: '#199e70' };
+const MODE_COLORS = { seq: '#3987e5', omp: '#d95926', pipeline: '#199e70', cuda: '#c98500' };
+const MODE_ORDER = { seq: 0, omp: 1, pipeline: 2, cuda: 3 };
 const STAGES = [
   { key: 'leitura', label: 'Leitura', color: '#c98500' },
   { key: 'cifra', label: 'Cifra', color: '#d55181' },
@@ -103,13 +104,13 @@ function aggregate(batch) {
   return [...groups.entries()].map(([key, runs]) => {
     const [mode, threads] = key.split('|');
     const stat = k => {
-      const vals = runs.map(r => Number(r[k]));
-      return { med: median(vals), min: Math.min(...vals), max: Math.max(...vals) };
+      const vals = runs.map(r => Number(r[k])).filter(Number.isFinite);
+      return vals.length ? { med: median(vals), min: Math.min(...vals), max: Math.max(...vals) } : null;
     };
-    return { mode, threads: Number(threads), n: runs.length, frames: runs[0].quadros,
+    return { mode, threads: threads === 'GPU' ? 'GPU' : Number(threads), n: runs.length, frames: runs[0].quadros,
       tempo_total: stat('tempo_total'), cifra: stat('cifra'), leitura: stat('leitura'),
       gravacao: stat('gravacao'), fps: stat('fps') };
-  }).sort((a, b) => (a.mode > b.mode) - (a.mode < b.mode) || a.threads - b.threads);
+  }).sort((a, b) => MODE_ORDER[a.mode] - MODE_ORDER[b.mode] || a.threads - b.threads);
 }
 
 function lineChart(container, { series, refs = [], xs, xLabel, yLabel, ideal }) {
@@ -123,7 +124,7 @@ function lineChart(container, { series, refs = [], xs, xLabel, yLabel, ideal }) 
   if (ideal) {
     const clip = el('clipPath', { id: `clip-${container.id}` }, f.svg);
     el('rect', { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1 }, clip);
-    el('polyline', { points: xs.map(x => `${xPos(x)},${ys(x)}`).join(' '), class: 'ref-line', stroke: '#64748b',
+    el('polyline', { points: xs.filter(Number.isFinite).map(x => `${xPos(x)},${ys(x)}`).join(' '), class: 'ref-line', stroke: '#64748b',
       'clip-path': `url(#clip-${container.id})` }, f.svg);
   }
   refs.forEach(r => {
@@ -168,12 +169,12 @@ function stageChart(container, rows) {
   rows.forEach((r, i) => {
     const y = f.y1 + 8 + i * rowH;
     el('text', { x: f.x0 - 10, y: y + 13, 'text-anchor': 'end', class: 'row-label' }, f.svg).textContent =
-      r.mode === 'seq' ? 'seq' : `${r.mode} ${r.threads}${r.mode === 'pipeline' ? '+2' : ''}`;
+      r.mode === 'cuda' ? 'cuda · GPU' : r.mode === 'seq' ? 'seq' : `${r.mode} ${r.threads}${r.mode === 'pipeline' ? '+2' : ''}`;
     let acc = 0;
     STAGES.forEach((s, k) => {
       const v = r[s.key].med, x = xs(acc), w = Math.max(0, xs(acc + v) - x - (k < 2 ? 2 : 0));
       const rect = el('rect', { x, y, width: w, height: 18, rx: k === 2 ? 4 : 0, fill: s.color }, f.svg);
-      rect.addEventListener('mousemove', e => showTip(e, `<b>${r.mode} · ${r.threads} thread(s)</b><br>${s.label}: ${fmt(v)} s<br>Tempo total: ${fmt(r.tempo_total.med)} s`));
+      rect.addEventListener('mousemove', e => showTip(e, `<b>${r.mode === 'cuda' ? 'CUDA · GPU' : `${r.mode} · ${r.threads} thread(s)`}</b><br>${s.label}: ${fmt(v)} s<br>Tempo total: ${fmt(r.tempo_total.med)} s`));
       rect.addEventListener('mouseleave', hideTip);
       acc += v;
     });
@@ -193,47 +194,47 @@ function renderBench() {
     return;
   }
   const chosen = select.value;
-  select.innerHTML = batches.map((b, i) => `<option value="${i}">${b.date} · ${b.seconds} s · ${b.reps} rep.${b.discard ? ' · sem disco' : ' · com disco'}</option>`).reverse().join('');
+  select.innerHTML = batches.map((b, i) => `<option value="${i}">${b.date}${b.gpu ? ' · CUDA' : ''} · ${b.seconds} s · ${b.reps} rep.${b.discard ? ' · sem disco' : ' · com disco'}</option>`).reverse().join('');
   select.value = chosen && batches[chosen] ? chosen : String(batches.length - 1);
   const batch = batches[Number(select.value)];
   const rows = aggregate(batch);
   const metricKey = $('bench-metric').value, metric = METRICS[metricKey];
   const seq = rows.find(r => r.mode === 'seq');
-  $('bench-meta').textContent = `${batch.cpu} · ${batch.cores} núcleos lógicos · ${rows[0]?.frames ?? '?'} quadros · ${batch.runs.length} execuções`;
+  $('bench-meta').textContent = `${batch.cpu} · ${batch.cores} núcleos lógicos${batch.gpu ? ` · ${batch.gpu} · CUDA ${batch.cuda_memory_percent}% da VRAM livre` : ''} · ${rows[0]?.frames ?? '?'} quadros · ${batch.runs.length} execuções`;
 
-  const threadsUsed = [...new Set(rows.filter(r => r.mode !== 'seq').map(r => r.threads))].sort((a, b) => a - b);
-  const xs = threadsUsed.length ? threadsUsed : [1];
-  const modes = ['omp', 'pipeline'].filter(m => rows.some(r => r.mode === m));
+  const threadsUsed = [...new Set(rows.filter(r => !['seq', 'cuda'].includes(r.mode)).map(r => r.threads))].sort((a, b) => a - b);
+  const xs = [...(threadsUsed.length ? threadsUsed : rows.some(r => r.mode === 'seq') ? [1] : []),
+    ...(rows.some(r => r.mode === 'cuda') ? ['GPU'] : [])];
+  const modes = ['omp', 'pipeline', 'cuda'].filter(m => rows.some(r => r.mode === m));
   legend($('bench-legend'), [{ label: 'seq (referência)', color: MODE_COLORS.seq, dashed: true },
-    ...modes.map(m => ({ label: m === 'pipeline' ? 'pipeline (+2 threads de E/S)' : 'omp', color: MODE_COLORS[m] }))]);
+    ...modes.map(m => ({ label: m === 'pipeline' ? 'pipeline (+2 threads de E/S)' : m, color: MODE_COLORS[m] }))]);
 
-  const pointTip = (r, k) => `<b>${r.mode} · ${r.threads} thread(s)${r.mode === 'pipeline' ? ' + 2' : ''}</b><br>${METRICS[k].label}: ${fmt(r[k].med)} ${METRICS[k].unit} (mediana)<br>min ${fmt(r[k].min)} · max ${fmt(r[k].max)} · ${r.n} execuções`;
+  const pointTip = (r, k) => `<b>${r.mode === 'cuda' ? `CUDA · ${batch.gpu || 'GPU'}` : `${r.mode} · ${r.threads} thread(s)${r.mode === 'pipeline' ? ' + 2' : ''}`}</b><br>${METRICS[k].label}: ${fmt(r[k].med)} ${METRICS[k].unit} (mediana)<br>min ${fmt(r[k].min)} · max ${fmt(r[k].max)} · ${r.n} execuções`;
   const series = modes.map(m => ({
     name: m, color: MODE_COLORS[m],
-    points: rows.filter(r => r.mode === m).map(r => ({ x: r.threads, y: r[metricKey].med, min: r[metricKey].min, max: r[metricKey].max, tip: pointTip(r, metricKey) }))
+    points: rows.filter(r => r.mode === m).map(r => ({ x: m === 'cuda' ? 'GPU' : r.threads, y: r[metricKey].med, min: r[metricKey].min, max: r[metricKey].max, tip: pointTip(r, metricKey) }))
   }));
   const refs = seq ? [{ y: seq[metricKey].med, color: MODE_COLORS.seq, tip: pointTip(seq, metricKey) }] : [];
-  $('chart-time-title').textContent = `${metric.label} por número de threads (${metric.better} é melhor)`;
-  lineChart($('chart-time'), { series, refs, xs, xLabel: 'threads de cifra', yLabel: `${metric.label} (${metric.unit})` });
+  $('chart-time-title').textContent = `${metric.label} por configuração (${metric.better} é melhor)`;
+  lineChart($('chart-time'), { series, refs, xs, xLabel: 'threads de cifra / GPU', yLabel: `${metric.label} (${metric.unit})` });
 
   if (seq) {
     const speed = (r) => metricKey === 'fps' ? r.fps.med / seq.fps.med : seq[metricKey].med / r[metricKey].med;
     const sSeries = modes.map(m => ({
       name: m, color: MODE_COLORS[m],
-      points: rows.filter(r => r.mode === m).map(r => ({ x: r.threads, y: speed(r),
-        tip: `<b>${r.mode} · ${r.threads} thread(s)</b><br>Speedup: ${fmt(speed(r))}×<br>Eficiência: ${fmt(speed(r) / r.threads * 100, 0)}%` }))
+      points: rows.filter(r => r.mode === m).map(r => ({ x: m === 'cuda' ? 'GPU' : r.threads, y: speed(r),
+        tip: `<b>${r.mode === 'cuda' ? `CUDA · ${batch.gpu || 'GPU'}` : `${r.mode} · ${r.threads} thread(s)`}</b><br>Speedup: ${fmt(speed(r))}×${m === 'cuda' ? '' : `<br>Eficiência: ${fmt(speed(r) / r.threads * 100, 0)}%`}` }))
     }));
     $('chart-speedup-title').textContent = `Speedup sobre o seq (${metric.label.toLowerCase()}); tracejado cinza = ideal`;
-    lineChart($('chart-speedup'), { series: sSeries, refs: [{ y: 1, color: MODE_COLORS.seq, tip: '<b>seq</b><br>Speedup 1×' }], xs, xLabel: 'threads de cifra', yLabel: 'speedup (×)', ideal: true });
+    lineChart($('chart-speedup'), { series: sSeries, refs: [{ y: 1, color: MODE_COLORS.seq, tip: '<b>seq</b><br>Speedup 1×' }], xs, xLabel: 'threads de cifra / GPU', yLabel: 'speedup (×)', ideal: true });
   }
 
   legend($('stage-legend'), STAGES.map(s => ({ label: s.label, color: s.color })).concat([{ label: 'Tempo total', color: '#f8fafc' }]));
-  const order = { seq: 0, omp: 1, pipeline: 2 };
-  stageChart($('chart-stages'), [...rows].sort((a, b) => order[a.mode] - order[b.mode] || a.threads - b.threads));
+  stageChart($('chart-stages'), [...rows].sort((a, b) => MODE_ORDER[a.mode] - MODE_ORDER[b.mode] || a.threads - b.threads));
 
-  const cell = s => `${fmt(s.med)} <small>(${fmt(s.min)}–${fmt(s.max)})</small>`;
-  $('bench-table').innerHTML = `<thead><tr><th>Modo</th><th>Threads</th><th>Total (s)</th><th>Leitura (s)</th><th>Cifra (s)</th><th>Gravação (s)</th><th>Quadros/s</th><th>Speedup total</th><th>Speedup cifra</th></tr></thead><tbody>${
-    rows.map(r => `<tr><td>${r.mode}</td><td>${r.threads}${r.mode === 'pipeline' ? '+2' : ''}</td><td>${cell(r.tempo_total)}</td><td>${cell(r.leitura)}</td><td>${cell(r.cifra)}</td><td>${cell(r.gravacao)}</td><td>${cell(r.fps)}</td><td>${seq ? fmt(seq.tempo_total.med / r.tempo_total.med) + '×' : '—'}</td><td>${seq ? fmt(seq.cifra.med / r.cifra.med) + '×' : '—'}</td></tr>`).join('')}</tbody>`;
+  const cell = s => s ? `${fmt(s.med)} <small>(${fmt(s.min)}–${fmt(s.max)})</small>` : '—';
+  $('bench-table').innerHTML = `<thead><tr><th>Modo</th><th>Threads / dispositivo</th><th>Total (s)</th><th>Leitura (s)</th><th>Cifra (s)</th><th>Gravação (s)</th><th>Quadros/s</th><th>Speedup total</th><th>Speedup cifra</th></tr></thead><tbody>${
+    rows.map(r => `<tr><td>${r.mode}</td><td>${r.mode === 'cuda' ? 'GPU' : `${r.threads}${r.mode === 'pipeline' ? '+2' : ''}`}</td><td>${cell(r.tempo_total)}</td><td>${cell(r.leitura)}</td><td>${cell(r.cifra)}</td><td>${cell(r.gravacao)}</td><td>${cell(r.fps)}</td><td>${seq ? fmt(seq.tempo_total.med / r.tempo_total.med) + '×' : '—'}</td><td>${seq ? fmt(seq.cifra.med / r.cifra.med) + '×' : '—'}</td></tr>`).join('')}</tbody>`;
 }
 
 // ---------- analise do quadro ----------
@@ -328,15 +329,20 @@ function renderDemo(d) {
     ? `<b>✓ Decifrado idêntico ao original</b><span>SHA-256 dos quadros: <code>${d.hash_original.slice(0, 16)}…</code> nos dois arquivos</span>`
     : `<b>✗ Decifrado diferente do original</b><span>original <code>${d.hash_original.slice(0, 16)}…</code> · decifrado <code>${d.hash_decifrado.slice(0, 16)}…</code></span>`;
   const e = d.encrypt, x = d.decrypt;
-  const row = (label, k, unit = 's', dec = 3) => `<tr><th scope="row">${label}</th><td>${fmt(e[k], dec)} ${unit}</td><td>${fmt(x[k], dec)} ${unit}</td></tr>`;
+  const row = (label, k, unit = 's', dec = 3) => {
+    const value = stats => stats[k] == null || !Number.isFinite(Number(stats[k])) ? '—' : `${fmt(stats[k], dec)} ${unit}`;
+    return `<tr><th scope="row">${label}</th><td>${value(e)}</td><td>${value(x)}</td></tr>`;
+  };
+  const modeLabel = stats => stats.modo === 'cuda' ? `CUDA · ${stats.gpu}`
+    : `${stats.modo} · ${stats.threads}${stats.modo === 'pipeline' ? '+2' : ''} thread(s)`;
   $('video-stats').querySelector('tbody').innerHTML = [
-    `<tr><th scope="row">Configuração</th><td>${e.modo} · ${e.threads}${e.modo === 'pipeline' ? '+2' : ''} thread(s)</td><td>${x.modo} · ${x.threads}${x.modo === 'pipeline' ? '+2' : ''} thread(s)</td></tr>`,
+    `<tr><th scope="row">Configuração</th><td>${modeLabel(e)}</td><td>${modeLabel(x)}</td></tr>`,
     `<tr><th scope="row">Quadros</th><td>${e.quadros} · ${e.resolucao}</td><td>${x.quadros} · ${x.resolucao}</td></tr>`,
     row('Tempo total', 'tempo_total'), row('Leitura (ocupada)', 'leitura'), row('Cifra', 'cifra'),
     row('Gravação (ocupada)', 'gravacao'), row('Quadros por segundo', 'fps', 'qps', 1),
     `<tr><th scope="row">Arquivo gerado</th><td>cifrado.mkv (raw) · ${fmtBytes(d.sizes['cifrado.mkv'])}</td><td>decifrado.mkv (FFV1) · ${fmtBytes(d.sizes['decifrado.mkv'])}</td></tr>`
   ].join('');
-  $('video-source').innerHTML = `Trecho de ${d.params.seconds} s a partir de ${d.params.start} s do <code>video.mp4</code> (${fmtBytes(d.sizes['trecho.mp4'])}), semente ${d.params.seed}.`;
+  $('video-source').innerHTML = `Trecho de ${d.params.seconds} s a partir de ${d.params.start} s do <code>video.mp4</code> (${fmtBytes(d.sizes['trecho.mp4'])}), semente ${d.params.seed}${d.params.mode === 'cuda' ? `, limite CUDA ${d.params.memory_percent}% da VRAM livre` : ''}.`;
   renderAnalysis(d.analysis);
 }
 
@@ -366,6 +372,7 @@ function setupSync() {
 function setBusy(busy) {
   $('video-run').disabled = busy;
   $('bench-run').disabled = busy;
+  $('video-memory').disabled = busy || $('video-mode').value !== 'cuda';
   $('video-cancel').hidden = !busy;
 }
 
@@ -418,8 +425,11 @@ function updateEstimate() {
   const modes = [...document.querySelectorAll('[name=bench-mode]:checked')].map(i => i.value);
   const threads = [...document.querySelectorAll('[name=bench-thread]:checked')].length;
   const reps = Number($('bench-reps').value) || 1;
-  const runs = (1 + modes.length * threads) * reps;
-  $('bench-estimate').textContent = `${runs} execuções do programa`;
+  $('bench-cuda-memory').disabled = $('bench-cuda').disabled || !$('bench-cuda').checked;
+  const cpuModes = modes.filter(mode => mode !== 'cuda');
+  const configs = 1 + cpuModes.length * threads + Number(modes.includes('cuda'));
+  const warmups = 1 + Number(modes.includes('cuda'));
+  $('bench-estimate').textContent = `${configs * reps} medições + ${warmups} aquecimento(s)`;
 }
 
 async function init() {
@@ -427,29 +437,41 @@ async function init() {
   setupSync();
   const threadHint = () => {
     const mode = $('video-mode').value, n = Number($('video-threads').value);
-    $('video-threads').disabled = mode === 'seq';
-    $('video-threads-value').textContent = mode === 'pipeline' ? `${n} + 2` : mode === 'seq' ? '1' : n;
-    $('video-threads-hint').textContent = mode === 'seq' ? 'O modo seq usa sempre 1 thread: ela lê, cifra e grava.'
+    $('video-threads').disabled = mode === 'seq' || mode === 'cuda';
+    $('video-memory').disabled = mode !== 'cuda' || state.polling;
+    $('video-threads-value').textContent = mode === 'cuda' ? 'GPU' : mode === 'pipeline' ? `${n} + 2` : mode === 'seq' ? '1' : n;
+    $('video-threads-hint').textContent = mode === 'cuda'
+      ? `Cada thread CUDA transforma um bloco de quatro bytes. Os quadros são processados em lotes limitados a ${$('video-memory').value}% da VRAM livre; o índice dos blocos continua global entre quadros.`
+      : mode === 'seq' ? 'O modo seq usa sempre 1 thread: ela lê, cifra e grava.'
       : mode === 'pipeline' ? `pipeline ${n}+2 = ${n + 2} threads: ${n} só cifram, 1 só lê e 1 só grava, todas ao mesmo tempo.`
         : `omp ${n} = ${n} threads: elas dividem a cifra de cada quadro; a thread principal também lê e grava, enquanto as outras esperam.`;
   };
   $('video-threads').addEventListener('input', threadHint);
   $('video-mode').addEventListener('change', threadHint);
+  $('video-memory').addEventListener('input', () => {
+    $('video-memory-value').textContent = `${$('video-memory').value}%`;
+    threadHint();
+  });
   threadHint();
   $('video-run').addEventListener('click', () => start('/api/demo', {
     mode: $('video-mode').value, threads: Number($('video-threads').value), seed: $('video-seed').value.trim(),
-    start: Number($('video-start').value), seconds: Number($('video-seconds').value)
+    start: Number($('video-start').value), seconds: Number($('video-seconds').value),
+    memoryPercent: Number($('video-memory').value)
   }));
   $('video-cancel').addEventListener('click', () => api('/api/cancel', {}).catch(() => {}));
   $('bench-run').addEventListener('click', () => start('/api/bench', {
     modes: [...document.querySelectorAll('[name=bench-mode]:checked')].map(i => i.value),
     threads: [...document.querySelectorAll('[name=bench-thread]:checked')].map(i => Number(i.value)),
     reps: Number($('bench-reps').value), seconds: Number($('bench-seconds').value),
-    start: Number($('video-start').value), discard: $('bench-discard').checked
+    start: Number($('video-start').value), discard: $('bench-discard').checked,
+    memoryPercent: Number($('bench-cuda-memory').value)
   }));
   $('bench-batch').addEventListener('change', renderBench);
   $('bench-metric').addEventListener('change', renderBench);
   document.querySelector('.video-bench-controls').addEventListener('change', updateEstimate);
+  $('bench-cuda-memory').addEventListener('input', () => {
+    $('bench-cuda-memory-value').textContent = `${$('bench-cuda-memory').value}%`;
+  });
 
   let info;
   try {
@@ -462,6 +484,25 @@ async function init() {
     return;
   }
   state.info = info;
+  const cudaOption = $('video-mode').querySelector('option[value="cuda"]');
+  const benchCuda = $('bench-cuda');
+  try {
+    const gpuInfo = await api('/api/gpu/info');
+    cudaOption.disabled = false;
+    benchCuda.disabled = false;
+    $('bench-cuda-memory').disabled = false;
+    cudaOption.textContent = `cuda: ${gpuInfo.name}`;
+    benchCuda.parentElement.title = `Executar o benchmark na ${gpuInfo.name}`;
+    const gib = bytes => (bytes / (1024 ** 3)).toFixed(2);
+    $('video-cuda-hint').textContent = `CUDA pronto · ${gpuInfo.name} · ${gib(gpuInfo.total_bytes)} GiB VRAM, ${gib(gpuInfo.free_bytes)} GiB livres.`;
+  } catch (error) {
+    cudaOption.disabled = true;
+    benchCuda.disabled = true;
+    $('bench-cuda-memory').disabled = true;
+    $('video-cuda-hint').textContent = `Modo GPU indisponível: ${error.message}`;
+    $('video-cuda-hint').classList.add('error');
+  }
+  threadHint();
   const maxThreads = Math.max(8, info.cores || 4);
   $('video-threads').max = maxThreads;
   $('bench-threads').innerHTML = Array.from({ length: maxThreads }, (_, i) => i + 1)

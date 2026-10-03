@@ -1,7 +1,7 @@
 import { matrixForBlock } from './image-core.mjs';
 
 const $ = id => document.getElementById(id);
-const state = { width: 0, height: 0, channels: 3, input: null, output: null, original: null, block: 0, busy: false };
+const state = { width: 0, height: 0, channels: 3, input: null, output: null, original: null, block: 0, busy: false, gpuInfo: null, gpuBatchBytes: null };
 
 function status(message, error = false) {
   $('image-status').textContent = message;
@@ -45,6 +45,7 @@ function setInput(width, height, channels, bytes, label) {
   state.input = bytes;
   state.original = bytes.slice();
   state.output = null;
+  state.gpuBatchBytes = null;
   state.block = 0;
   draw($('image-input-canvas'), bytes);
   draw($('image-output-canvas'), null);
@@ -155,9 +156,31 @@ async function transform() {
   return { result, ms: performance.now() - start, count };
 }
 
+async function transformGpu() {
+  const memoryPercent = Number($('image-memory').value);
+  const url = `/api/image/gpu?seed=${encodeURIComponent(seed().toString())}&memoryPercent=${memoryPercent}`;
+  const start = performance.now();
+  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: state.input });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || `Backend CUDA respondeu ${response.status}.`);
+  }
+  const batchBytes = Number(response.headers.get('X-GPU-Batch-Bytes')) || state.input.length;
+  return {
+    result: new Uint8Array(await response.arrayBuffer()),
+    ms: performance.now() - start,
+    count: Math.ceil(state.input.length / batchBytes),
+    batchBytes,
+    freeBytes: Number(response.headers.get('X-GPU-Free-Bytes')) || 0,
+    device: response.headers.get('X-GPU-Name') || 'GPU CUDA'
+  };
+}
+
 function setBusy(value) {
   state.busy = value;
-  for (const id of ['image-file', 'image-sample', 'image-seed', 'image-threads', 'image-encrypt', 'image-decrypt']) $(id).disabled = value;
+  for (const id of ['image-file', 'image-sample', 'image-seed', 'image-threads', 'image-backend', 'image-memory', 'image-encrypt', 'image-decrypt']) $(id).disabled = value;
+  $('image-threads').disabled = value || $('image-backend').value === 'cuda';
+  $('image-memory').disabled = value || $('image-backend').value !== 'cuda';
   $('image-reuse').disabled = value || !state.output;
 }
 
@@ -166,9 +189,13 @@ async function process(action) {
   try {
     seed();
     setBusy(true);
-    status(`${action === 'encrypt' ? 'Cifrando' : 'Decifrando'} com ${workerCount()} worker(s)…`);
-    const { result, ms, count } = await transform();
+    const useGpu = $('image-backend').value === 'cuda';
+    status(useGpu
+      ? `${action === 'encrypt' ? 'Cifrando' : 'Decifrando'} na GPU em lotes de até ${$('image-memory').value}% da VRAM livre…`
+      : `${action === 'encrypt' ? 'Cifrando' : 'Decifrando'} com ${workerCount()} worker(s)…`);
+    const { result, ms, count, batchBytes, device } = useGpu ? await transformGpu() : await transform();
     state.output = result;
+    state.gpuBatchBytes = useGpu ? batchBytes : null;
     draw($('image-output-canvas'), result);
     $('image-output-caption').textContent = action === 'encrypt' ? 'Resultado cifrado' : 'Resultado decifrado';
     $('image-time').textContent = `${ms.toFixed(1)} ms`;
@@ -176,7 +203,9 @@ async function process(action) {
     $('image-check').textContent = recovered ? 'Pixels recuperados ✓' : 'Transformação concluída';
     $('image-reuse').disabled = $('image-download').disabled = $('image-download-pnm').disabled = false;
     renderDetails();
-    status(`${action === 'encrypt' ? 'Cifragem' : 'Decifragem'} concluída com ${count} worker(s). ${recovered ? 'Pixels iguais aos da imagem inicial.' : 'Use o resultado como entrada e aplique K novamente para recuperar.'}`);
+    status(useGpu
+      ? `${action === 'encrypt' ? 'Cifragem' : 'Decifragem'} concluída na ${device}: ${count} lote(s), até ${(batchBytes / (1024 * 1024)).toFixed(1)} MiB por lote. ${recovered ? 'Pixels iguais aos da imagem inicial.' : 'Use o resultado como entrada e aplique K novamente para recuperar.'}`
+      : `${action === 'encrypt' ? 'Cifragem' : 'Decifragem'} concluída com ${count} worker(s). ${recovered ? 'Pixels iguais aos da imagem inicial.' : 'Use o resultado como entrada e aplique K novamente para recuperar.'}`);
   } catch (error) { status(error.message || 'Falha ao processar imagem.', true); }
   finally { setBusy(false); }
 }
@@ -209,19 +238,35 @@ function renderDetails() {
   const after = state.output ? [...state.output.slice(from, from + size)].join(', ') : '…';
   $('image-block-bytes').textContent = `[${before}] → [${after}]`;
   const count = workerCount();
-  const owner = Array.from({ length: count }, (_, i) => i).find(i => state.block < Math.floor(blocks * (i + 1) / count));
-  $('image-owner').textContent = `Intervalo do worker ${owner + 1}`;
   const map = $('image-thread-map');
-  map.replaceChildren(...Array.from({ length: count }, (_, i) => {
-    const first = Math.floor(blocks * i / count), last = Math.floor(blocks * (i + 1) / count);
-    const row = document.createElement('div'); row.className = 'image-thread-row';
-    const label = document.createElement('span'); label.textContent = `Thread ${i + 1}`;
-    const bar = document.createElement('div'); bar.className = 'image-thread-bar';
-    const fill = document.createElement('span'); fill.style.marginLeft = `${first / blocks * 100}%`; fill.style.width = `${(last - first) / blocks * 100}%`;
-    bar.append(fill);
-    const range = document.createElement('span'); range.textContent = `${first + 1}–${last}`;
-    row.append(label, bar, range); return row;
-  }));
+  map.replaceChildren();
+  if ($('image-backend').value === 'cuda') {
+    const budget = state.gpuBatchBytes || Math.floor((state.gpuInfo?.free_bytes || 0) * Number($('image-memory').value) / 100 / 4) * 4;
+    const batchBytes = Math.max(4, budget);
+    const note = document.createElement('div'); note.className = 'image-gpu-batch-note';
+    note.textContent = `${blocks.toLocaleString('pt-BR')} blocos · ${Math.ceil(state.input.length / batchBytes)} lote(s) · 1 thread CUDA por bloco`;
+    map.append(note);
+    $('image-owner').textContent = 'CUDA · 1 thread por bloco';
+    $('image-parallel-title').textContent = 'GPU: um thread por bloco';
+    $('image-parallel-copy').textContent = 'Cada thread CUDA calcula um bloco independente. O servidor transfere os dados em lotes alinhados a quatro bytes e usa a mesma semente e o índice global do bloco.';
+    $('image-thread-example').textContent = `O limite por lote é ${$('image-memory').value}% da VRAM livre observada no início da execução. Os workers CPU não participam quando CUDA está selecionado.`;
+  } else {
+    const owner = Array.from({ length: count }, (_, i) => i).find(i => state.block < Math.floor(blocks * (i + 1) / count));
+    $('image-owner').textContent = `Intervalo do worker ${owner + 1}`;
+    $('image-parallel-title').textContent = 'Cada worker recebe um intervalo';
+    $('image-parallel-copy').textContent = 'O escalonamento estático do OpenMP e a divisão por intervalos do Pthreads percorrem blocos distintos. A matriz depende do índice do bloco, então o resultado permanece igual com diferentes números de workers.';
+    $('image-thread-example').textContent = 'No desenho, cada barra colorida representa a parte da imagem atribuída a um worker. Alterar o controle “Workers no navegador” muda a divisão, mas não os bytes produzidos.';
+    map.replaceChildren(...Array.from({ length: count }, (_, i) => {
+      const first = Math.floor(blocks * i / count), last = Math.floor(blocks * (i + 1) / count);
+      const row = document.createElement('div'); row.className = 'image-thread-row';
+      const label = document.createElement('span'); label.textContent = `Worker ${i + 1}`;
+      const bar = document.createElement('div'); bar.className = 'image-thread-bar';
+      const fill = document.createElement('span'); fill.style.marginLeft = `${first / blocks * 100}%`; fill.style.width = `${(last - first) / blocks * 100}%`;
+      bar.append(fill);
+      const range = document.createElement('span'); range.textContent = `${first + 1}–${last}`;
+      row.append(label, bar, range); return row;
+    }));
+  }
 }
 
 function download(blob, name) {
@@ -230,11 +275,17 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function init() {
+async function init() {
   $('image-file').addEventListener('change', event => loadFile(event.target.files[0]));
   $('image-sample').addEventListener('click', sample);
   $('image-encrypt').addEventListener('click', () => process('encrypt'));
   $('image-decrypt').addEventListener('click', () => process('decrypt'));
+  $('image-backend').addEventListener('change', () => { state.gpuBatchBytes = null; setBusy(state.busy); renderDetails(); });
+  $('image-memory').addEventListener('input', () => {
+    state.gpuBatchBytes = null;
+    $('image-memory-value').textContent = `${$('image-memory').value}%`;
+    renderDetails();
+  });
   $('image-threads').addEventListener('input', () => { $('image-thread-value').textContent = $('image-threads').value; renderDetails(); });
   $('image-seed').addEventListener('input', () => {
     if (state.output) {
@@ -271,6 +322,21 @@ function init() {
     download(new Blob([header, state.output], { type: 'application/octet-stream' }), `hill-resultado.${state.channels === 1 ? 'pgm' : 'ppm'}`);
   });
   sample();
+  const gpuOption = $('image-backend').querySelector('option[value="cuda"]');
+  try {
+    const response = await fetch('/api/gpu/info');
+    const info = await response.json();
+    if (!response.ok) throw new Error(info.error || `Servidor respondeu ${response.status}.`);
+    state.gpuInfo = info;
+    gpuOption.disabled = false;
+    gpuOption.textContent = `GPU · ${info.name}`;
+    const gib = bytes => (bytes / (1024 ** 3)).toFixed(2);
+    $('image-gpu-hint').textContent = `CUDA pronto · ${info.name} · ${gib(info.total_bytes)} GiB VRAM, ${gib(info.free_bytes)} GiB livres. O limite escolhido é aplicado à VRAM livre no início de cada execução.`;
+  } catch (error) {
+    gpuOption.disabled = true;
+    $('image-gpu-hint').textContent = `GPU CUDA indisponível: ${error.message} A CPU continua disponível.`;
+    $('image-gpu-hint').classList.add('error');
+  }
 }
 
 init();

@@ -330,7 +330,16 @@ def preview(src, dst, noise):
 
 
 def run_cuda_video(src, dst, seed, memory_percent, codec, discard=False):
+    """Mesmo encadeamento do video_hill (FFmpeg -> cifra -> FFmpeg), com a cifra na GPU.
+
+    O tempo_total cobre o mesmo trecho do video_hill: da abertura do FFmpeg de leitura
+    ate o fim do FFmpeg de saida. A diferenca e que aqui ele tambem inclui iniciar o processo
+    CUDA e criar o contexto da GPU; esse custo vem separado em "init_gpu".
+    codec "hash" calcula o SHA-256 dos quadros cifrados sem gravar em disco.
+    """
     binary = require_cuda_binary()
+    hashing = codec == "hash"
+    discard = discard or hashing
     input_path = src if os.path.isabs(src) else os.path.join(LAB, src)
     output_path = None if discard else dst if os.path.isabs(dst) else os.path.join(LAB, dst)
     info = probe(input_path)
@@ -344,9 +353,14 @@ def run_cuda_video(src, dst, seed, memory_percent, codec, discard=False):
     encode += (["-c:v", "ffv1", "-level", "3", "-g", "1", "-pix_fmt", "yuv420p"]
                if codec == "ffv1" else ["-c:v", "rawvideo", "-pix_fmt", "yuv420p"])
     encode += ["-an"]
-    encode += ["-f", "null", "-"] if discard else [output_path]
+    if hashing:
+        encode += ["-f", "hash", "-hash", "sha256", "-"]
+    else:
+        encode += ["-f", "null", "-"] if discard else [output_path]
 
     decoder = gpu_process = encoder = None
+    encoder_stdout = ""
+    start_epoch = time.time()
     start = time.perf_counter()
     try:
         with CUDA_LOCK:
@@ -355,9 +369,12 @@ def run_cuda_video(src, dst, seed, memory_percent, codec, discard=False):
             gpu_process = subprocess.Popen(gpu, stdin=decoder.stdout, stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             decoder.stdout.close()
-            encoder = subprocess.Popen(encode, stdin=gpu_process.stdout, stdout=subprocess.DEVNULL,
+            encoder = subprocess.Popen(encode, stdin=gpu_process.stdout,
+                                       stdout=subprocess.PIPE if hashing else subprocess.DEVNULL,
                                        stderr=subprocess.PIPE)
             gpu_process.stdout.close()
+            if hashing:
+                encoder_stdout = encoder.stdout.read().decode("ascii", errors="replace")
             encoder_code = encoder.wait()
             gpu_code = gpu_process.wait()
             decoder_code = decoder.wait()
@@ -371,19 +388,30 @@ def run_cuda_video(src, dst, seed, memory_percent, codec, discard=False):
                 process.kill()
                 process.wait()
     elapsed = time.perf_counter() - start
-    match = re.search(r"GPU_STREAM_META (\d+) (\d+) (\d+) ([\d.]+) ([\d.]+) ([\d.]+)", gpu_stderr)
+    end_epoch = time.time()
+    match = re.search(r"GPU_STREAM_META (\d+) (\d+) (\d+) ([\d.]+) ([\d.]+) ([\d.]+)"
+                      r"(?: ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+))?", gpu_stderr)
     if decoder_code or gpu_code or encoder_code or not match:
         if output_path and os.path.exists(output_path):
             os.remove(output_path)
         details = (gpu_stderr or decoder_stderr or encoder_stderr).strip().splitlines()
         raise RuntimeError(details[-1] if details else "Falha no pipeline de video CUDA")
     frames = int(match.group(3))
-    return {"modo": "cuda", "threads": "GPU", "gpu": cuda_device_info()["name"],
-            "quadros": frames, "resolucao": f"{width}x{height}", "formato": "yuv420p",
-            "bytes_quadro": frame_size, "codec": codec, "tempo_total": elapsed,
-            "leitura": float(match.group(4)), "cifra": float(match.group(5)),
-            "gravacao": float(match.group(6)),
-            "fps": frames / elapsed if elapsed else 0}
+    stats = {"modo": "cuda", "threads": "GPU", "gpu": cuda_device_info()["name"],
+             "quadros": frames, "resolucao": f"{width}x{height}", "formato": "yuv420p",
+             "bytes_quadro": frame_size, "codec": "descartado" if discard and not hashing else codec,
+             "tempo_total": elapsed,
+             "leitura": float(match.group(4)), "cifra": float(match.group(5)),
+             "gravacao": float(match.group(6)),
+             "fps": frames / elapsed if elapsed else 0,
+             "inicio_epoch": start_epoch, "fim_epoch": end_epoch}
+    if match.group(7):
+        stats.update(init_gpu=float(match.group(7)), copia_h2d=float(match.group(8)),
+                     kernel=float(match.group(9)), copia_d2h=float(match.group(10)))
+    digest = re.search(r"SHA256=([0-9a-f]{64})", encoder_stdout)
+    if digest:
+        stats["sha256"] = digest.group(1)
+    return stats
 
 
 def run_demo(p):

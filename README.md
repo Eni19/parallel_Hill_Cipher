@@ -259,6 +259,42 @@ O que os números mostram:
 - **A medida do pipeline foi corrigida.** A primeira versão somava o tempo de cada thread de cifra separadamente, o que favorecia o pipeline (1,83 s em vez de 2,38 s). Hoje os dois modos medem a cifra pela thread mais lenta de cada quadro.
 - **Uma hipótese foi descartada.** Suspeitamos que as threads do `omp` demoravam a "acordar" entre quadros (o relógio do Windows tem resolução de 15,6 ms). Um teste com e sem pausa entre as regiões paralelas deu o mesmo tempo, então não era isso.
 
+### 4. Protocolo do artigo (tempo + energia na mesma máquina)
+
+Os experimentos do artigo rodam pela linha de comando, sem o site, para atender à revisão do WPADS: mesmo escopo de tempo em todas as versões, energia da CPU e da GPU na mesma janela, verificação de que descartar a saída não muda os bytes cifrados, e média ± dispersão com testes estatísticos.
+
+**Preparar a máquina.** Os experimentos rodam no **Ubuntu do WSL 2**. No Windows 11 com o Controle Inteligente de Aplicativos ligado, o instalador do CUDA e os `.exe` sem assinatura são bloqueados; no WSL, nada disso acontece. Só o HWiNFO roda no Windows, porque o WSL não expõe o RAPL da CPU.
+
+```powershell
+winget install --id REALiX.HWiNFO --exact                      # Windows: potência do pacote da CPU
+wsl -d Ubuntu -u root -- apt install -y ffmpeg nvidia-cuda-toolkit rsync g++-13
+wsl -d Ubuntu -- bash preparar_wsl.sh                          # copia para ~/pcd e compila (GCC + nvcc)
+```
+
+O `preparar_wsl.sh` copia o projeto para `~/pcd`, porque ler o vídeo por `/mnt/c` mediria o compartilhamento de arquivos. Ele grava o commit em `.commit`, compila o `video_hill` com GCC e o backend CUDA com `NVCC_CCBIN=g++-13`, já que o CUDA 12.4 do Ubuntu não aceita o GCC 15. Rode de novo a cada mudança no código.
+
+**Rodar:**
+
+1. Notebook na tomada, plano de energia de alto desempenho, outros programas fechados.
+2. No HWiNFO (*Sensors only*), ajuste o intervalo de leitura para 100 ms e ative **Logging** em CSV.
+3. Lote principal (saída descartada, trecho de 30 s ≈ 900 quadros, para que até as execuções mais rápidas durem alguns segundos):
+   ```powershell
+   wsl -d Ubuntu -- bash -lc "cd ~/pcd && NVCC_CCBIN=g++-13 python3 benchmark.py --modos seq omp pipeline cuda --threads 1 2 4 6 8 10 12 14 16 --reps 10 --segundos 30 --rotulo principal"
+   ```
+4. Pare o log do HWiNFO e analise. O `analisar.py` usa o fuso do Windows e a diferença entre os relógios, registrados em `meta.json`:
+   ```powershell
+   wsl -d Ubuntu -- bash -lc "cd ~/pcd && python3 analisar.py resultados/<id>-principal --hwinfo /mnt/c/caminho/hwinfo.csv"
+   ```
+5. Lote de sensibilidade (gravando em disco), com a melhor configuração de cada modo segundo o passo 4, usando `--saida disco --rotulo disco`.
+6. Copie `~/pcd/resultados/` de volta para o repositório (`\\wsl$\Ubuntu\root\pcd\resultados`).
+
+**O que cada script faz:**
+
+- `benchmark.py`: antes de medir, roda cada configuração com a saída `hash` (SHA-256 dos quadros cifrados, sem disco) e só continua se todas derem o mesmo hash do `seq` e se a ida e volta devolver os quadros originais. Depois mede 30 s ocioso, faz o aquecimento e as repetições em ordem embaralhada, com pausa entre execuções. Também amostra a potência da GPU (`nvidia-smi`, `power.draw.instant`, a cada 100 ms) e mede mais 30 s ocioso no fim. Cada execução vai para `resultados/<id>/execucoes.csv` com `inicio_epoch`/`fim_epoch`, e `meta.json` guarda a máquina, as versões, o commit e o resultado da verificação.
+- `analisar.py`: integra a potência da CPU (HWiNFO) e da GPU na janela de cada execução e desconta a potência ociosa para a energia líquida. Calcula média, dp, CV, IC95 (t), speedup com IC95 (bootstrap) e testes de Welch com correção de Holm. Gera `resumo.csv`, `comparacoes.csv` e `tabelas.tex`, e também aceita `video_lab/benchmarks.json` ou um CSV com uma linha por execução.
+
+**Escopo das medidas:** `tempo_total` vai da abertura do FFmpeg de leitura até o fim do FFmpeg de saída, nas quatro versões. No `cuda`, ele também inclui iniciar o processo e criar o contexto da GPU, que vêm separados em `init_gpu`; o analisador calcula `tempo_sem_init`. No `cuda`, `cifra` = cópia→GPU + kernel + cópia←GPU, com cada parte em `copia_h2d`, `kernel` e `copia_d2h` (eventos CUDA).
+
 ### Limitações
 
 - Todas as medições foram feitas em uma única máquina Windows, com 4 núcleos.

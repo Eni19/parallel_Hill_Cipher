@@ -1,0 +1,177 @@
+{
+ "id": "20261109-135647-principal",
+ "reconstruido": "meta.json reconstruido apos o lote: o processo foi encerrado por falta de memoria do Windows na execucao 195/200 (rep 10), antes de gravar o meta. Verificacao copiada do log de saida (saida_terminal.log); maquina e relogio medidos de novo na mesma sessao.",
+ "args": {
+  "modos": [
+   "seq",
+   "omp",
+   "pipeline",
+   "cuda"
+  ],
+  "threads": [
+   1,
+   2,
+   4,
+   6,
+   8,
+   10,
+   12,
+   14,
+   16
+  ],
+  "reps": 10,
+  "segundos": 30,
+  "inicio": 0,
+  "saida": "null",
+  "memoria_gpu": 60,
+  "ocioso": 30,
+  "pausa": 3,
+  "amostragem_gpu_ms": 100,
+  "rotulo": "principal"
+ },
+ "maquina": {
+  "cpu": "13th Gen Intel(R) Core(TM) i5-13450HX",
+  "nucleos_logicos": 16,
+  "so": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "python": "3.14.4",
+  "fuso_local_min": -180.0,
+  "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "nvcc": "Build cuda_12.4.r12.4/compiler.34097967_0",
+  "ffmpeg": "ffmpeg version 8.0.1-3ubuntu2 Copyright (c) 2000-2025 the FFmpeg developers",
+  "commit": "0df1ae2-dirty",
+  "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU, 617.42"
+ },
+ "video": {
+  "width": 1920,
+  "height": 1080,
+  "fps": 29.97,
+  "frame_rate": "30000/1001",
+  "codec": "h264",
+  "pix_fmt": "yuv420p",
+  "frames": 901,
+  "duration": 30.06
+ },
+ "semente": 123,
+ "configuracoes": [
+  "seq",
+  "omp 1",
+  "omp 2",
+  "omp 4",
+  "omp 6",
+  "omp 8",
+  "omp 10",
+  "omp 12",
+  "omp 14",
+  "omp 16",
+  "pipeline 1+2",
+  "pipeline 2+2",
+  "pipeline 4+2",
+  "pipeline 6+2",
+  "pipeline 8+2",
+  "pipeline 10+2",
+  "pipeline 12+2",
+  "pipeline 14+2",
+  "pipeline 16+2",
+  "cuda"
+ ],
+ "verificacao": {
+  "configuracoes": {
+   "seq": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 1": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 4": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 6": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 8": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 10": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 12": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 14": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "omp 16": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 1+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 2+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 4+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 6+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 8+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 10+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 12+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 14+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "pipeline 16+2": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   },
+   "cuda": {
+    "sha256_cifrado_prefixo": "199b9553403ea889",
+    "quadros": 901
+   }
+  },
+  "ok": true,
+  "cifrados_iguais": true,
+  "decifrado_igual_original": true,
+  "prefixos_iguais": true
+ },
+ "campo_potencia_gpu": "power.draw.instant",
+ "relogio_windows_fim": {
+  "diferenca_s": -0.0016257762908935547,
+  "fuso_windows_min": -180.0,
+  "incerteza_s": 0.00011026859283447266
+ },
+ "interrompido_em": "execucao 195 de 200",
+ "relogio_windows_inicio": {
+  "diferenca_s": -0.0016257762908935547,
+  "fuso_windows_min": -180.0,
+  "incerteza_s": 0.00011026859283447266
+ }
+}

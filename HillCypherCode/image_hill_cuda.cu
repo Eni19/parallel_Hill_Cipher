@@ -115,19 +115,43 @@ static bool allocate_device_buffer(size_t requested_bytes, unsigned long percent
     return true;
 }
 
+/* Tempo de cada parte da cifra na GPU, medido com eventos CUDA (em segundos). */
+struct GpuTimes {
+    cudaEvent_t marks[4];
+    double h2d = 0, kernel = 0, d2h = 0;
+    bool ready = false;
+};
+
+static float event_seconds(cudaEvent_t from, cudaEvent_t to) {
+    float ms = 0;
+    cudaEventElapsedTime(&ms, from, to);
+    return ms / 1000.0f;
+}
+
 static bool transform_data(uint8_t *bytes, size_t total_bytes, uint64_t first_block,
-                           uint64_t seed, uint8_t *device_bytes, size_t batch_capacity) {
+                           uint64_t seed, uint8_t *device_bytes, size_t batch_capacity,
+                           GpuTimes *times = nullptr) {
     for (size_t first_byte = 0; first_byte < total_bytes;) {
         size_t count = std::min(batch_capacity, total_bytes - first_byte);
         size_t block_count = (count + 3) / 4;
+        if (times) cudaEventRecord(times->marks[0]);
         if (!cuda_ok(cudaMemcpy(device_bytes, bytes + first_byte, count,
                                 cudaMemcpyHostToDevice), "copy to GPU")) return false;
+        if (times) cudaEventRecord(times->marks[1]);
         transform_kernel<<<static_cast<unsigned>((block_count + 255) / 256), 256>>>(
             device_bytes, count, first_block + first_byte / 4, seed, block_count);
+        if (times) cudaEventRecord(times->marks[2]);
         if (!cuda_ok(cudaGetLastError(), "launch kernel") ||
             !cuda_ok(cudaDeviceSynchronize(), "run kernel") ||
             !cuda_ok(cudaMemcpy(bytes + first_byte, device_bytes, count,
                                 cudaMemcpyDeviceToHost), "copy from GPU")) return false;
+        if (times) {
+            cudaEventRecord(times->marks[3]);
+            if (!cuda_ok(cudaEventSynchronize(times->marks[3]), "timing event")) return false;
+            times->h2d += event_seconds(times->marks[0], times->marks[1]);
+            times->kernel += event_seconds(times->marks[1], times->marks[2]);
+            times->d2h += event_seconds(times->marks[2], times->marks[3]);
+        }
         first_byte += count;
     }
     return true;
@@ -164,11 +188,21 @@ static int run_image(uint64_t seed, unsigned long percent) {
     return std::cout ? 0 : 1;
 }
 
+/* Le quadros brutos do stdin, cifra cada um na GPU e grava no stdout.
+ * Alem de leitura/cifra/gravacao (mesmas etapas do video_hill), informa:
+ *   init: criacao do contexto CUDA e alocacao do buffer, antes do primeiro quadro;
+ *   h2d/kernel/d2h: partes da cifra (copia para a GPU, kernel e copia de volta). */
 static int run_video_stream(uint64_t seed, unsigned long percent, size_t frame_bytes) {
     if (!frame_bytes) { std::cerr << "frame size must be positive\n"; return 2; }
+    auto init_start = std::chrono::steady_clock::now();
+    if (!cuda_ok(cudaFree(nullptr), "create CUDA context")) return 1;
     uint8_t *device_bytes = nullptr;
     size_t free_bytes = 0, batch_capacity = 0;
     if (!allocate_device_buffer(frame_bytes, percent, &device_bytes, &free_bytes, &batch_capacity)) return 1;
+    GpuTimes times;
+    for (cudaEvent_t &mark : times.marks)
+        if (!cuda_ok(cudaEventCreate(&mark), "create timing event")) { cudaFree(device_bytes); return 1; }
+    double init_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - init_start).count();
 
     std::vector<uint8_t> frame;
     try { frame.resize(frame_bytes); }
@@ -196,25 +230,28 @@ static int run_video_stream(uint64_t seed, unsigned long percent, size_t frame_b
         auto start = std::chrono::steady_clock::now();
         bool ok = frames <= UINT64_MAX / blocks_per_frame &&
                   transform_data(frame.data(), frame_bytes, frames * blocks_per_frame,
-                                 seed, device_bytes, batch_capacity);
+                                 seed, device_bytes, batch_capacity, &times);
         transform_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         if (!ok) {
             cudaFree(device_bytes);
             if (frames > UINT64_MAX / blocks_per_frame) std::cerr << "video block index overflow\n";
             return 1;
         }
-                auto write_start = std::chrono::steady_clock::now();
+        auto write_start = std::chrono::steady_clock::now();
         std::cout.write(reinterpret_cast<const char *>(frame.data()),
                         static_cast<std::streamsize>(frame_bytes));
         std::cout.flush();
         if (!std::cout) { cudaFree(device_bytes); return 1; }
-                write_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - write_start).count();
+        write_seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - write_start).count();
         ++frames;
     }
+    for (cudaEvent_t mark : times.marks) cudaEventDestroy(mark);
     cudaFree(device_bytes);
+    /* Os seis primeiros campos mantem o formato antigo; os quatro ultimos foram acrescentados. */
     std::cerr << "GPU_STREAM_META " << free_bytes << ' ' << batch_capacity << ' '
-                            << frames << ' ' << std::fixed << std::setprecision(6) << read_seconds << ' '
-                            << transform_seconds << ' ' << write_seconds << '\n';
+              << frames << ' ' << std::fixed << std::setprecision(6) << read_seconds << ' '
+              << transform_seconds << ' ' << write_seconds << ' ' << init_seconds << ' '
+              << times.h2d << ' ' << times.kernel << ' ' << times.d2h << '\n';
     return 0;
 }
 

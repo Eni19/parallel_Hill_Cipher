@@ -1,0 +1,199 @@
+Relogio Windows - benchmark: -0.002 s (deriva no lote: +0.000 s); fuso do Windows: -180 min
+HWiNFO: coluna 'Potência total da CPU [W]', 19561 amostras
+nvidia-smi: 18101 amostras de potencia da GPU
+Potencia media em repouso (cpu_w): 22.43 W
+Potencia media em repouso (gpu_w): 6.55 W
+
+config           n     media       dp    CV%                 IC95%  speedup   metrica
+seq             10    12.096    0.051    0.4      [12.060; 12.132]     1.00   tempo_total
+seq             10   425.526    5.164    1.2    [421.832; 429.220]     1.00   energia_cpu_j
+seq             10   504.469    5.294    1.0    [500.682; 508.256]     1.00   energia_total_j
+omp 1            9    12.037    0.066    0.6      [11.986; 12.088]     1.00   tempo_total
+omp 1            9   429.794    5.708    1.3    [425.406; 434.181]      nan   energia_cpu_j
+omp 1            9   508.590    5.586    1.1    [504.296; 512.884]      nan   energia_total_j
+omp 2            9     7.672    0.049    0.6        [7.634; 7.709]     1.58   tempo_total
+omp 2            9   341.194   10.700    3.1    [332.969; 349.418]      nan   energia_cpu_j
+omp 2            9   390.764   10.810    2.8    [382.455; 399.073]      nan   energia_total_j
+omp 4           10     6.254    0.223    3.6        [6.094; 6.414]     1.93   tempo_total
+omp 4           10   342.645   24.334    7.1    [325.237; 360.052]      nan   energia_cpu_j
+omp 4           10   382.675   25.609    6.7    [364.356; 400.995]      nan   energia_total_j
+omp 6           10     6.301    0.229    3.6        [6.138; 6.465]     1.92   tempo_total
+omp 6           10   367.814   19.691    5.4    [353.728; 381.900]      nan   energia_cpu_j
+omp 6           10   407.755   20.842    5.1    [392.846; 422.664]      nan   energia_total_j
+omp 8           10     6.842    0.175    2.6        [6.717; 6.967]     1.77   tempo_total
+omp 8           10   399.320    8.548    2.1    [393.204; 405.435]      nan   energia_cpu_j
+omp 8           10   442.856    9.208    2.1    [436.269; 449.443]      nan   energia_total_j
+omp 10           9     7.217    0.089    1.2        [7.149; 7.285]     1.68   tempo_total
+omp 10           9   432.717    8.636    2.0    [426.078; 439.355]      nan   energia_cpu_j
+omp 10           9   479.145    9.024    1.9    [472.208; 486.082]      nan   energia_total_j
+omp 12          10     5.833    0.400    6.8        [5.548; 6.119]     2.07   tempo_total
+omp 12          10   361.207   22.256    6.2    [345.286; 377.128]      nan   energia_cpu_j
+omp 12          10   398.562   24.352    6.1    [381.142; 415.983]      nan   energia_total_j
+omp 14           9     5.578    0.356    6.4        [5.304; 5.852]     2.17   tempo_total
+omp 14           9   348.041   19.120    5.5    [333.344; 362.738]      nan   energia_cpu_j
+omp 14           9   383.545   21.446    5.6    [367.060; 400.030]      nan   energia_total_j
+omp 16          10     7.455    0.437    5.9        [7.142; 7.767]     1.62   tempo_total
+omp 16          10   437.308   27.088    6.2    [417.931; 456.686]      nan   energia_cpu_j
+omp 16          10   484.279   29.605    6.1    [463.101; 505.457]      nan   energia_total_j
+pipeline 1+2    10     9.181    0.067    0.7        [9.133; 9.229]     1.32   tempo_total
+pipeline 1+2    10   421.683    8.239    2.0    [415.789; 427.577]      nan   energia_cpu_j
+pipeline 1+2    10   481.116    9.436    2.0    [474.366; 487.866]      nan   energia_total_j
+pipeline 2+2    10     5.233    0.084    1.6        [5.173; 5.293]     2.31   tempo_total
+pipeline 2+2    10   303.876   10.811    3.6    [296.142; 311.609]      nan   energia_cpu_j
+pipeline 2+2    10   337.056   11.160    3.3    [329.073; 345.039]      nan   energia_total_j
+pipeline 4+2    10     4.028    0.048    1.2        [3.993; 4.062]     3.00   tempo_total
+pipeline 4+2    10   275.400   12.448    4.5    [266.496; 284.305]      nan   energia_cpu_j
+pipeline 4+2    10   301.299   12.610    4.2    [292.279; 310.319]      nan   energia_total_j
+pipeline 6+2    10     3.848    0.044    1.1        [3.817; 3.879]     3.14   tempo_total
+pipeline 6+2    10   269.575   10.654    4.0    [261.954; 277.197]      nan   energia_cpu_j
+pipeline 6+2    10   294.821   10.974    3.7    [286.971; 302.672]      nan   energia_total_j
+pipeline 8+2    10     3.737    0.073    1.9        [3.685; 3.789]     3.24   tempo_total
+pipeline 8+2    10   264.773    6.996    2.6    [259.769; 269.778]      nan   energia_cpu_j
+pipeline 8+2    10   289.141    7.400    2.6    [283.847; 294.434]      nan   energia_total_j
+pipeline 10+2   10     3.166    0.185    5.9        [3.034; 3.299]     3.82   tempo_total
+pipeline 10+2   10   229.629   11.497    5.0    [221.405; 237.854]      nan   energia_cpu_j
+pipeline 10+2   10   250.519   12.492    5.0    [241.583; 259.455]      nan   energia_total_j
+pipeline 12+2    9     3.530    0.127    3.6        [3.433; 3.627]     3.43   tempo_total
+pipeline 12+2    9   242.215    8.786    3.6    [235.461; 248.969]      nan   energia_cpu_j
+pipeline 12+2    9   265.043    9.247    3.5    [257.935; 272.151]      nan   energia_total_j
+pipeline 14+2    9     5.766    0.259    4.5        [5.567; 5.966]     2.10   tempo_total
+pipeline 14+2    9   356.070   10.249    2.9    [348.192; 363.948]      nan   energia_cpu_j
+pipeline 14+2    9   392.969   11.748    3.0    [383.939; 401.999]      nan   energia_total_j
+pipeline 16+2   10     3.762    0.050    1.3        [3.726; 3.798]     3.22   tempo_total
+pipeline 16+2   10   245.731    9.382    3.8    [239.019; 252.443]      nan   energia_cpu_j
+pipeline 16+2   10   270.273    9.550    3.5    [263.441; 277.104]      nan   energia_total_j
+cuda            10     4.688    0.051    1.1        [4.652; 4.724]     2.58   tempo_total
+cuda            10   219.518    5.893    2.7    [215.302; 223.733]      nan   energia_cpu_j
+cuda            10   275.465    5.986    2.2    [271.183; 279.747]      nan   energia_total_j
+
+Comparacoes (Welch, p corrigido por Holm):
+ * tempo_total      pipeline 10+2 x pipeline 12+2  dif=-0.364 (-10.3%) IC95=[-0.517; -0.211] p_holm=0.0007
+ * tempo_total              omp 1 x omp 2          dif=+4.365 (+56.9%) IC95=[+4.306; +4.424] p_holm=0.0000
+ * tempo_total              omp 2 x omp 4          dif=+1.418 (+22.7%) IC95=[+1.256; +1.580] p_holm=0.0000
+   tempo_total              omp 4 x omp 6          dif=-0.047 (-0.8%) IC95=[-0.260; +0.165] p_holm=0.7684
+ * tempo_total              omp 6 x omp 8          dif=-0.541 (-7.9%) IC95=[-0.733; -0.348] p_holm=0.0002
+ * tempo_total              omp 8 x omp 10         dif=-0.375 (-5.2%) IC95=[-0.510; -0.240] p_holm=0.0003
+ * tempo_total             omp 10 x omp 12         dif=+1.383 (+23.7%) IC95=[+1.094; +1.673] p_holm=0.0000
+   tempo_total             omp 12 x omp 14         dif=+0.255 (+4.6%) IC95=[-0.111; +0.621] p_holm=0.4786
+ * tempo_total             omp 14 x omp 16         dif=-1.876 (-25.2%) IC95=[-2.261; -1.492] p_holm=0.0000
+ * tempo_total       pipeline 1+2 x pipeline 2+2   dif=+3.948 (+75.4%) IC95=[+3.876; +4.020] p_holm=0.0000
+ * tempo_total       pipeline 2+2 x pipeline 4+2   dif=+1.205 (+29.9%) IC95=[+1.140; +1.271] p_holm=0.0000
+ * tempo_total       pipeline 4+2 x pipeline 6+2   dif=+0.179 (+4.7%) IC95=[+0.136; +0.223] p_holm=0.0000
+ * tempo_total       pipeline 6+2 x pipeline 8+2   dif=+0.111 (+3.0%) IC95=[+0.054; +0.168] p_holm=0.0044
+ * tempo_total       pipeline 8+2 x pipeline 10+2  dif=+0.571 (+18.0%) IC95=[+0.434; +0.709] p_holm=0.0000
+ * tempo_total      pipeline 12+2 x pipeline 14+2  dif=-2.236 (-38.8%) IC95=[-2.447; -2.026] p_holm=0.0000
+ * tempo_total      pipeline 14+2 x pipeline 16+2  dif=+2.004 (+53.3%) IC95=[+1.803; +2.205] p_holm=0.0000
+ * tempo_total             omp 14 x pipeline 10+2  dif=+2.412 (+76.2%) IC95=[+2.123; +2.702] p_holm=0.0000
+ * tempo_total             omp 14 x cuda           dif=+0.890 (+19.0%) IC95=[+0.616; +1.165] p_holm=0.0004
+ * tempo_total      pipeline 10+2 x cuda           dif=-1.522 (-32.5%) IC95=[-1.657; -1.387] p_holm=0.0000
+ * tempo_total              omp 8 x omp 16         dif=-0.613 (-8.2%) IC95=[-0.938; -0.288] p_holm=0.0059
+   tempo_total       pipeline 8+2 x pipeline 16+2  dif=-0.025 (-0.7%) IC95=[-0.084; +0.034] p_holm=0.7684
+ * cifra            pipeline 16+2 x cuda           dif=-0.172 (-11.4%) IC95=[-0.207; -0.137] p_holm=0.0000
+ * cifra                    omp 1 x omp 2          dif=+4.108 (+88.4%) IC95=[+4.081; +4.135] p_holm=0.0000
+ * cifra                    omp 2 x omp 4          dif=+1.512 (+48.2%) IC95=[+1.420; +1.603] p_holm=0.0000
+ * cifra                    omp 4 x omp 6          dif=+0.395 (+14.4%) IC95=[+0.303; +0.486] p_holm=0.0000
+ * cifra                    omp 6 x omp 8          dif=+0.548 (+25.0%) IC95=[+0.527; +0.570] p_holm=0.0000
+ * cifra                    omp 8 x omp 10         dif=+0.316 (+16.8%) IC95=[+0.300; +0.331] p_holm=0.0000
+ * cifra                   omp 10 x omp 12         dif=+0.145 (+8.3%) IC95=[+0.108; +0.181] p_holm=0.0000
+ * cifra                   omp 12 x omp 14         dif=-0.320 (-15.6%) IC95=[-0.419; -0.221] p_holm=0.0001
+ * cifra                   omp 14 x omp 16         dif=-1.999 (-49.3%) IC95=[-2.313; -1.685] p_holm=0.0000
+ * cifra             pipeline 1+2 x pipeline 2+2   dif=+3.944 (+76.6%) IC95=[+3.871; +4.017] p_holm=0.0000
+ * cifra             pipeline 2+2 x pipeline 4+2   dif=+1.529 (+42.2%) IC95=[+1.456; +1.602] p_holm=0.0000
+ * cifra             pipeline 4+2 x pipeline 6+2   dif=+0.806 (+28.6%) IC95=[+0.756; +0.856] p_holm=0.0000
+ * cifra             pipeline 6+2 x pipeline 8+2   dif=+0.515 (+22.4%) IC95=[+0.489; +0.541] p_holm=0.0000
+ * cifra             pipeline 8+2 x pipeline 10+2  dif=+0.213 (+10.2%) IC95=[+0.174; +0.251] p_holm=0.0000
+ * cifra            pipeline 10+2 x pipeline 12+2  dif=-0.192 (-8.4%) IC95=[-0.258; -0.127] p_holm=0.0001
+ * cifra            pipeline 12+2 x pipeline 14+2  dif=-0.684 (-23.1%) IC95=[-0.779; -0.589] p_holm=0.0000
+ * cifra            pipeline 14+2 x pipeline 16+2  dif=+1.625 (+121.5%) IC95=[+1.541; +1.709] p_holm=0.0000
+ * cifra                   omp 12 x pipeline 16+2  dif=+0.396 (+29.6%) IC95=[+0.357; +0.435] p_holm=0.0000
+ * cifra                   omp 12 x cuda           dif=+0.224 (+14.9%) IC95=[+0.181; +0.268] p_holm=0.0000
+ * cifra                    omp 8 x omp 16         dif=-1.859 (-45.9%) IC95=[-2.167; -1.552] p_holm=0.0000
+ * cifra             pipeline 8+2 x pipeline 16+2  dif=+0.961 (+71.9%) IC95=[+0.932; +0.990] p_holm=0.0000
+   energia_cpu_j             cuda x pipeline 10+2  dif=-10.112 (-4.4%) IC95=[-18.910; -1.314] p_holm=0.1368
+ * energia_cpu_j            omp 1 x omp 2          dif=+88.600 (+26.0%) IC95=[+79.810; +97.391] p_holm=0.0000
+   energia_cpu_j            omp 2 x omp 4          dif=-1.451 (-0.4%) IC95=[-19.829; +16.927] p_holm=0.8669
+   energia_cpu_j            omp 4 x omp 6          dif=-25.169 (-6.8%) IC95=[-46.030; -4.307] p_holm=0.1252
+ * energia_cpu_j            omp 6 x omp 8          dif=-31.506 (-7.9%) IC95=[-46.259; -16.752] p_holm=0.0048
+ * energia_cpu_j            omp 8 x omp 10         dif=-33.397 (-7.7%) IC95=[-41.738; -25.056] p_holm=0.0000
+ * energia_cpu_j           omp 10 x omp 12         dif=+71.510 (+19.8%) IC95=[+54.925; +88.094] p_holm=0.0000
+   energia_cpu_j           omp 12 x omp 14         dif=+13.166 (+3.8%) IC95=[-6.869; +33.201] p_holm=0.7340
+ * energia_cpu_j           omp 14 x omp 16         dif=-89.267 (-20.4%) IC95=[-111.884; -66.650] p_holm=0.0000
+ * energia_cpu_j     pipeline 1+2 x pipeline 2+2   dif=+117.807 (+38.8%) IC95=[+108.731; +126.884] p_holm=0.0000
+ * energia_cpu_j     pipeline 2+2 x pipeline 4+2   dif=+28.476 (+10.3%) IC95=[+17.507; +39.444] p_holm=0.0004
+   energia_cpu_j     pipeline 4+2 x pipeline 6+2   dif=+5.825 (+2.2%) IC95=[-5.079; +16.729] p_holm=0.7541
+   energia_cpu_j     pipeline 6+2 x pipeline 8+2   dif=+4.802 (+1.8%) IC95=[-3.763; +13.367] p_holm=0.7541
+ * energia_cpu_j     pipeline 8+2 x pipeline 10+2  dif=+35.144 (+15.3%) IC95=[+26.065; +44.223] p_holm=0.0000
+   energia_cpu_j    pipeline 10+2 x pipeline 12+2  dif=-12.586 (-5.2%) IC95=[-22.453; -2.718] p_holm=0.1088
+ * energia_cpu_j    pipeline 12+2 x pipeline 14+2  dif=-113.855 (-32.0%) IC95=[-123.412; -104.297] p_holm=0.0000
+ * energia_cpu_j    pipeline 14+2 x pipeline 16+2  dif=+110.339 (+44.9%) IC95=[+100.763; +119.914] p_holm=0.0000
+ * energia_cpu_j            omp 2 x pipeline 10+2  dif=+111.564 (+48.6%) IC95=[+100.817; +122.311] p_holm=0.0000
+ * energia_cpu_j            omp 2 x cuda           dif=+121.676 (+55.4%) IC95=[+112.921; +130.431] p_holm=0.0000
+ * energia_cpu_j            omp 8 x omp 16         dif=-37.989 (-8.7%) IC95=[-57.809; -18.168] p_holm=0.0118
+ * energia_cpu_j     pipeline 8+2 x pipeline 16+2  dif=+19.042 (+7.7%) IC95=[+11.221; +26.863] p_holm=0.0009
+   energia_total_j  pipeline 10+2 x pipeline 12+2  dif=-14.524 (-5.5%) IC95=[-25.123; -3.925] p_holm=0.0615
+ * energia_total_j          omp 1 x omp 2          dif=+117.826 (+30.2%) IC95=[+108.988; +126.664] p_holm=0.0000
+   energia_total_j          omp 2 x omp 4          dif=+8.089 (+2.1%) IC95=[-11.160; +27.337] p_holm=0.6843
+   energia_total_j          omp 4 x omp 6          dif=-25.080 (-6.2%) IC95=[-47.081; -3.079] p_holm=0.1390
+ * energia_total_j          omp 6 x omp 8          dif=-35.100 (-7.9%) IC95=[-50.745; -19.455] p_holm=0.0028
+ * energia_total_j          omp 8 x omp 10         dif=-36.289 (-7.6%) IC95=[-45.128; -27.451] p_holm=0.0000
+ * energia_total_j         omp 10 x omp 12         dif=+80.583 (+20.2%) IC95=[+62.510; +98.656] p_holm=0.0000
+   energia_total_j         omp 12 x omp 14         dif=+15.017 (+3.9%) IC95=[-7.152; +37.186] p_holm=0.6843
+ * energia_total_j         omp 14 x omp 16         dif=-100.734 (-20.8%) IC95=[-125.666; -75.802] p_holm=0.0000
+ * energia_total_j   pipeline 1+2 x pipeline 2+2   dif=+144.060 (+42.7%) IC95=[+134.332; +153.789] p_holm=0.0000
+ * energia_total_j   pipeline 2+2 x pipeline 4+2   dif=+35.757 (+11.9%) IC95=[+24.558; +46.956] p_holm=0.0000
+   energia_total_j   pipeline 4+2 x pipeline 6+2   dif=+6.478 (+2.2%) IC95=[-4.643; +17.599] p_holm=0.6843
+   energia_total_j   pipeline 6+2 x pipeline 8+2   dif=+5.680 (+2.0%) IC95=[-3.203; +14.563] p_holm=0.6843
+ * energia_total_j   pipeline 8+2 x pipeline 10+2  dif=+38.622 (+15.4%) IC95=[+28.814; +48.430] p_holm=0.0000
+ * energia_total_j  pipeline 12+2 x pipeline 14+2  dif=-127.926 (-32.6%) IC95=[-138.538; -117.314] p_holm=0.0000
+ * energia_total_j  pipeline 14+2 x pipeline 16+2  dif=+122.696 (+45.4%) IC95=[+112.184; +133.208] p_holm=0.0000
+ * energia_total_j          omp 4 x pipeline 10+2  dif=+132.156 (+52.8%) IC95=[+112.699; +151.614] p_holm=0.0000
+ * energia_total_j          omp 4 x cuda           dif=+107.210 (+38.9%) IC95=[+88.675; +125.746] p_holm=0.0000
+ * energia_total_j  pipeline 10+2 x cuda           dif=-24.946 (-9.1%) IC95=[-34.415; -15.477] p_holm=0.0008
+ * energia_total_j          omp 8 x omp 16         dif=-41.423 (-8.6%) IC95=[-63.070; -19.777] p_holm=0.0105
+ * energia_total_j   pipeline 8+2 x pipeline 16+2  dif=+18.868 (+7.0%) IC95=[+10.806; +26.931] p_holm=0.0011
+ * energia_total_liq_j          cuda x seq            dif=-14.340 (-9.3%) IC95=[-19.640; -9.040] p_holm=0.0003
+   energia_total_liq_j         omp 1 x omp 2          dif=-8.664 (-5.1%) IC95=[-17.267; -0.060] p_holm=0.3404
+ * energia_total_liq_j         omp 2 x omp 4          dif=-32.994 (-16.4%) IC95=[-48.104; -17.884] p_holm=0.0040
+   energia_total_liq_j         omp 4 x omp 6          dif=-23.709 (-10.5%) IC95=[-39.988; -7.430] p_holm=0.0556
+ * energia_total_liq_j         omp 6 x omp 8          dif=-19.432 (-7.9%) IC95=[-30.317; -8.548] p_holm=0.0190
+ * energia_total_liq_j         omp 8 x omp 10         dif=-25.423 (-9.4%) IC95=[-31.965; -18.881] p_holm=0.0000
+ * energia_total_liq_j        omp 10 x omp 12         dif=+40.496 (+17.6%) IC95=[+29.131; +51.861] p_holm=0.0001
+   energia_total_liq_j        omp 12 x omp 14         dif=+7.617 (+3.4%) IC95=[-5.478; +20.711] p_holm=1.0000
+ * energia_total_liq_j        omp 14 x omp 16         dif=-46.346 (-17.3%) IC95=[-60.855; -31.838] p_holm=0.0001
+ * energia_total_liq_j  pipeline 1+2 x pipeline 2+2   dif=+29.651 (+16.0%) IC95=[+20.996; +38.307] p_holm=0.0000
+   energia_total_liq_j  pipeline 2+2 x pipeline 4+2   dif=+0.825 (+0.4%) IC95=[-9.123; +10.772] p_holm=1.0000
+   energia_total_liq_j  pipeline 4+2 x pipeline 6+2   dif=+1.279 (+0.7%) IC95=[-9.022; +11.581] p_holm=1.0000
+   energia_total_liq_j  pipeline 6+2 x pipeline 8+2   dif=+2.461 (+1.4%) IC95=[-5.895; +10.817] p_holm=1.0000
+ * energia_total_liq_j  pipeline 8+2 x pipeline 10+2  dif=+22.079 (+13.9%) IC95=[+15.113; +29.045] p_holm=0.0001
+   energia_total_liq_j pipeline 10+2 x pipeline 12+2  dif=-3.979 (-2.4%) IC95=[-11.556; +3.598] p_holm=1.0000
+ * energia_total_liq_j pipeline 12+2 x pipeline 14+2  dif=-63.123 (-27.9%) IC95=[-70.128; -56.118] p_holm=0.0000
+ * energia_total_liq_j pipeline 14+2 x pipeline 16+2  dif=+64.622 (+40.1%) IC95=[+57.402; +71.841] p_holm=0.0000
+   energia_total_liq_j         omp 1 x pipeline 10+2  dif=+1.022 (+0.6%) IC95=[-6.107; +8.151] p_holm=1.0000
+ * energia_total_liq_j         omp 1 x cuda           dif=+20.177 (+14.5%) IC95=[+13.934; +26.420] p_holm=0.0001
+ * energia_total_liq_j pipeline 10+2 x cuda           dif=+19.156 (+13.7%) IC95=[+12.291; +26.020] p_holm=0.0003
+ * energia_total_liq_j         omp 8 x omp 16         dif=-23.657 (-8.8%) IC95=[-36.539; -10.776] p_holm=0.0189
+ * energia_total_liq_j  pipeline 8+2 x pipeline 16+2  dif=+19.599 (+12.2%) IC95=[+12.489; +26.708] p_holm=0.0003
+ * energia_cpu_liq_j          cuda x seq            dif=-39.875 (-25.8%) IC95=[-45.111; -34.639] p_holm=0.0000
+   energia_cpu_liq_j         omp 1 x omp 2          dif=-9.293 (-5.5%) IC95=[-17.923; -0.663] p_holm=0.2570
+ * energia_cpu_liq_j         omp 2 x omp 4          dif=-33.246 (-16.4%) IC95=[-48.418; -18.075] p_holm=0.0039
+   energia_cpu_liq_j         omp 4 x omp 6          dif=-24.108 (-10.6%) IC95=[-40.542; -7.675] p_holm=0.0529
+ * energia_cpu_liq_j         omp 6 x omp 8          dif=-19.380 (-7.9%) IC95=[-30.518; -8.242] p_holm=0.0225
+ * energia_cpu_liq_j         omp 8 x omp 10         dif=-24.987 (-9.2%) IC95=[-31.692; -18.282] p_holm=0.0000
+ * energia_cpu_liq_j        omp 10 x omp 12         dif=+40.485 (+17.6%) IC95=[+28.930; +52.041] p_holm=0.0001
+   energia_cpu_liq_j        omp 12 x omp 14         dif=+7.438 (+3.3%) IC95=[-5.745; +20.621] p_holm=1.0000
+ * energia_cpu_liq_j        omp 14 x omp 16         dif=-47.175 (-17.5%) IC95=[-61.794; -32.557] p_holm=0.0001
+ * energia_cpu_liq_j  pipeline 1+2 x pipeline 2+2   dif=+29.264 (+15.7%) IC95=[+21.026; +37.502] p_holm=0.0000
+   energia_cpu_liq_j  pipeline 2+2 x pipeline 4+2   dif=+1.441 (+0.8%) IC95=[-8.567; +11.449] p_holm=1.0000
+   energia_cpu_liq_j  pipeline 4+2 x pipeline 6+2   dif=+1.802 (+1.0%) IC95=[-8.466; +12.069] p_holm=1.0000
+   energia_cpu_liq_j  pipeline 6+2 x pipeline 8+2   dif=+2.310 (+1.3%) IC95=[-5.862; +10.483] p_holm=1.0000
+ * energia_cpu_liq_j  pipeline 8+2 x pipeline 10+2  dif=+22.341 (+14.1%) IC95=[+15.442; +29.239] p_holm=0.0000
+   energia_cpu_liq_j pipeline 10+2 x pipeline 12+2  dif=-4.425 (-2.7%) IC95=[-12.050; +3.201] p_holm=1.0000
+ * energia_cpu_liq_j pipeline 12+2 x pipeline 14+2  dif=-63.702 (-28.1%) IC95=[-70.695; -56.710] p_holm=0.0000
+ * energia_cpu_liq_j pipeline 14+2 x pipeline 16+2  dif=+65.393 (+40.5%) IC95=[+58.200; +72.586] p_holm=0.0000
+   energia_cpu_liq_j         omp 1 x pipeline 10+2  dif=+1.228 (+0.8%) IC95=[-5.891; +8.347] p_holm=1.0000
+ * energia_cpu_liq_j         omp 1 x cuda           dif=+45.471 (+39.8%) IC95=[+39.274; +51.668] p_holm=0.0000
+ * energia_cpu_liq_j pipeline 10+2 x cuda           dif=+44.243 (+38.7%) IC95=[+37.415; +51.071] p_holm=0.0000
+ * energia_cpu_liq_j         omp 8 x omp 16         dif=-24.239 (-9.0%) IC95=[-37.335; -11.144] p_holm=0.0176
+ * energia_cpu_liq_j  pipeline 8+2 x pipeline 16+2  dif=+19.607 (+12.2%) IC95=[+12.515; +26.699] p_holm=0.0003
+
+Arquivos em resultados/20261109-135647-principal: resumo.csv, comparacoes.csv, tabelas.tex

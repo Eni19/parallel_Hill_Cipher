@@ -1,7 +1,10 @@
 /* Cifra de Hill auto-invertivel aplicada a videos, quadro a quadro.
- * Uso: video_hill <seq|omp|pipeline> <threads> <seed> <entrada> <saida.mkv> [yuv420p|yuv444p|rgb24|gray] [raw|ffv1]
+ * Uso: video_hill <seq|omp|pipeline> <threads> <seed> <entrada> <saida.mkv|-|hash> [yuv420p|yuv444p|rgb24|gray] [raw|ffv1]
  * O FFmpeg decodifica a entrada em quadros brutos; a saida e gravada sem perdas: quadros brutos (raw)
  * ou FFV1. Quadros cifrados parecem ruido e nao comprimem, entao raw e o padrao.
+ * Saida "-": o FFmpeg de saida recebe todos os quadros pelo pipe e os descarta (-f null).
+ * Saida "hash": o FFmpeg de saida calcula o SHA-256 dos quadros recebidos e o imprime (SHA256=...),
+ * para conferir que todas as versoes produzem exatamente os mesmos bytes cifrados.
  * A mesma operacao cifra e decifra; finalidade didatica, sem seguranca moderna.
  */
 #define _CRT_SECURE_NO_WARNINGS
@@ -66,6 +69,13 @@ static double now(void) {
     timespec_get(&t, TIME_UTC);
     return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
 #endif
+}
+
+/* Relogio de parede (segundos desde 1970), para alinhar a execucao com sensores de energia. */
+static double epoch(void) {
+    struct timespec t;
+    timespec_get(&t, TIME_UTC);
+    return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
 }
 
 static int ends_with_mkv(const char *path) {
@@ -246,17 +256,19 @@ int main(int argc, char **argv) {
     uint64_t parsed, seed;
     int threads, width, height, ok = 0, ok_in, ok_out;
     size_t i;
-    double start, elapsed;
+    double start, elapsed, start_epoch, end_epoch;
     Video v = {NULL, NULL, 0, 0, 0};
     Stats st = {0, 0, 0, 0};
     const char *mode = argc > 1 ? argv[1] : "";
-    int ffv1 = 0, discard = argc > 5 && !strcmp(argv[5], "-");
+    int ffv1 = 0, hash = argc > 5 && !strcmp(argv[5], "hash");
+    int discard = hash || (argc > 5 && !strcmp(argv[5], "-"));  /* nada vai para o disco */
 
     if (argc < 6 || argc > 8 || (strcmp(mode, "seq") && strcmp(mode, "omp") && strcmp(mode, "pipeline")) ||
         !number(argv[2], &parsed) || parsed < 1 || parsed > 1024 || !number(argv[3], &seed)) {
-        fprintf(stderr, "uso: %s <seq|omp|pipeline> <threads> <seed> <entrada> <saida.mkv|-> [formato] [raw|ffv1]\n"
+        fprintf(stderr, "uso: %s <seq|omp|pipeline> <threads> <seed> <entrada> <saida.mkv|-|hash> [formato] [raw|ffv1]\n"
                 "formatos: yuv420p (padrao), yuv444p, rgb24, gray; codec: raw (padrao) ou ffv1\n"
-                "saida '-': descarta os quadros (mede sem gravar em disco)\n", argv[0]);
+                "saida '-': descarta os quadros (mede sem gravar em disco)\n"
+                "saida 'hash': imprime o SHA-256 dos quadros cifrados, sem gravar em disco\n", argv[0]);
         return 1;
     }
     threads = strcmp(mode, "seq") ? (int)parsed : 1;
@@ -289,14 +301,18 @@ int main(int argc, char **argv) {
     /* passthrough: cada quadro decodificado sai uma unica vez, sem duplicar nem descartar. */
     snprintf(cmd_in, sizeof cmd_in, "ffmpeg -v error -nostdin -i %s -map 0:v:0 -fps_mode passthrough "
              "-f rawvideo -pix_fmt %s pipe:1", qin, fmt->name);
-    /* Com saida "-", o FFmpeg recebe os quadros e os descarta: o pipe continua, o disco sai da medicao. */
+    /* Com saida "-", o FFmpeg recebe os quadros e os descarta: o pipe continua, o disco sai da medicao.
+     * Com "hash", o FFmpeg tambem recebe tudo, mas calcula o SHA-256 dos quadros brutos. */
     snprintf(cmd_out, sizeof cmd_out, "ffmpeg -v error -nostdin -y -f rawvideo -pix_fmt %s -s %dx%d "
              "-framerate %s -i pipe:0 %s%s %s", fmt->name, width, height, fps,
-             discard ? "-f null" : ffv1 ? "-c:v ffv1 -level 3 -g 1 -pix_fmt " : "-c:v rawvideo -pix_fmt ",
+             hash ? "-c:v rawvideo -f hash -hash sha256" : discard ? "-f null" :
+             ffv1 ? "-c:v ffv1 -level 3 -g 1 -pix_fmt " : "-c:v rawvideo -pix_fmt ",
              discard ? "" : ffv1 ? fmt->stored : fmt->name, discard ? "-" : qout);
 #ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
 #endif
+    fflush(stdout);  /* a linha SHA256= do FFmpeg sai no mesmo stdout */
+    start_epoch = epoch();
     start = now();
     v.in = popen(cmd_in, PIPE_R);
     v.out = popen(cmd_out, PIPE_W);
@@ -312,6 +328,7 @@ int main(int argc, char **argv) {
     ok_in = v.in && exited_ok(pclose(v.in));
     ok_out = v.out && exited_ok(pclose(v.out));
     elapsed = now() - start;
+    end_epoch = epoch();
     if (!ok || !ok_in || !ok_out) {
         fprintf(stderr, "Erro: leitura, cifra ou gravacao do video falhou (%s)\n",
                 !ok_in ? "decodificacao" : !ok_out ? "codificacao" : "processamento");
@@ -319,8 +336,10 @@ int main(int argc, char **argv) {
         return 1;
     }
     printf("modo=%s threads=%d%s quadros=%llu resolucao=%dx%d formato=%s bytes_quadro=%zu "
-           "codec=%s tempo_total=%.3f s leitura=%.3f s cifra=%.3f s gravacao=%.3f s fps=%.1f\n",
+           "codec=%s tempo_total=%.3f s leitura=%.3f s cifra=%.3f s gravacao=%.3f s fps=%.1f "
+           "inicio_epoch=%.3f fim_epoch=%.3f\n",
            mode, threads, strcmp(mode, "pipeline") ? "" : "+2", st.frames, width, height, fmt->name,
-           v.bytes, discard ? "descartado" : ffv1 ? "ffv1" : "raw", elapsed, st.read, st.cipher, st.write, (double)st.frames / elapsed);
+           v.bytes, hash ? "hash" : discard ? "descartado" : ffv1 ? "ffv1" : "raw", elapsed, st.read, st.cipher,
+           st.write, (double)st.frames / elapsed, start_epoch, end_epoch);
     return 0;
 }

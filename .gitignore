@@ -26,3 +26,6 @@ video_lab/
 demo/
 __pycache__/
 .claude/
+
+# Log ao vivo do HWiNFO (a copia de cada lote fica em resultados/)
+log/

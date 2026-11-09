@@ -1,7 +1,7 @@
 # 🔐 Cifra de Hill Paralela (PCD - UNIFESP)
 
 > Projeto desenvolvido para a disciplina de **Programação Concorrente e Distribuída (PCD)** da Universidade Federal de São Paulo (**UNIFESP**).
-> **Objetivo atual:** comparar execuções sequenciais e paralelas (OpenMP e Pthreads) da **Cifra de Hill aplicada a imagens e vídeos** em memória compartilhada. O simulador de texto continua como introdução didática.
+> **Objetivo atual:** comparar execuções sequenciais, paralelas em CPU (OpenMP/Pthreads) e em GPU CUDA da **Cifra de Hill aplicada a imagens e vídeos**. O simulador de texto continua como introdução didática.
 
 ## ⚙️ Requisitos
 
@@ -10,6 +10,7 @@
 | Programas C de imagem e vídeo | GCC com OpenMP (Linux/WSL) **ou** Visual Studio / Build Tools 2022 com o componente C++ (Windows) |
 | **Tudo que envolve vídeo** (programa `video_hill` e aba 5 do site) | **FFmpeg 5.1 ou superior, com `ffmpeg` e `ffprobe` no PATH** |
 | Site e aba de vídeo | Python 3.10 ou superior (só a biblioteca padrão) |
+| Modos GPU das abas de imagens e vídeo/benchmark | GPU NVIDIA compatível, driver NVIDIA e CUDA Toolkit (`nvcc`); no Windows, Visual Studio Build Tools 2022 com MSVC |
 
 **O FFmpeg é obrigatório para o vídeo.** O programa C não decodifica MP4 sozinho: ele chama o `ffmpeg` para extrair os quadros e para gravar o resultado, e o `ffprobe` para ler resolução e taxa de quadros. Para instalar:
 
@@ -76,6 +77,22 @@ Uso (a mesma semente decimal nas duas chamadas):
 ```
 
 O programa imprime o tempo **somente da transformação em memória**; leitura e escrita ficam fora dessa medida. Sequencial e OpenMP foram compilados e testados no Windows; a execução Pthreads ainda precisa de validação em ambiente POSIX. A semente e a cifra têm finalidade experimental e não constituem proteção criptográfica moderna. O [esboço atualizado do artigo](Artigo_PCD_SBC_Esboço_Imagens.docx) descreve o plano de medições.
+
+### Modos GPU CUDA na interface
+
+Na aba **4. Imagens & Paralelismo**, escolha `GPU · <modelo>` no seletor **Processador**. O servidor local compila `HillCypherCode/image_hill_cuda.cu` na primeira consulta e gera código nativo para a arquitetura CUDA detectada com `nvidia-smi`. O controle de VRAM limita a alocação CUDA a 10%–80% da **memória atualmente livre** (60% por padrão); a imagem é processada em lotes alinhados a blocos de quatro bytes. A alocação também fica limitada ao tamanho dos dados, portanto o percentual é um teto, não uma reserva que será sempre totalmente ocupada. A interface envia somente os bytes dos pixels ao servidor local e recebe a imagem transformada. O endpoint limita uploads a 64 MiB; para entradas maiores, use o caminho de vídeo em streaming ou aumente esse limite conscientemente.
+
+No Windows, instale o CUDA Toolkit e o compilador host MSVC:
+
+```powershell
+winget install --id Nvidia.CUDA --exact --source winget
+```
+
+No Visual Studio Installer, modifique **Build Tools 2022** e selecione a carga **Desenvolvimento para desktop com C++**, incluindo MSVC v143 e um Windows SDK. Depois inicie ou reinicie `python server.py`. O servidor procura `nvcc.exe` e `VsDevCmd.bat`, inicializando o ambiente MSVC para compilar automaticamente; não é necessário iniciar o servidor em um Developer PowerShell. Se o compilador ou a GPU não estiverem disponíveis, os controles CUDA ficam desativados e a interface mostra o motivo. A resposta GPU deve ser comparada com a CPU usando os mesmos bytes e a mesma semente; os tempos de imagem no navegador incluem transferência local e comunicação com o servidor.
+
+Na aba **5. Vídeo & Benchmarks**, o modo `cuda` conecta FFmpeg → backend CUDA → FFmpeg por pipes. O backend processa quadros brutos `yuv420p` em streaming; mantém uma alocação CUDA reutilizável e divide cada quadro em lotes limitados à porcentagem escolhida da VRAM livre. O índice da chave usa `quadro × blocos_por_quadro + bloco`, igual aos modos CPU. A demonstração cifra e decifra, grava a saída sem perdas e compara os hashes dos quadros. Leitura, cifra (cópias host↔GPU e kernel) e gravação são cronometradas separadamente. O benchmark descarta a saída quando essa opção está selecionada; caso contrário, cifra em raw e remove os arquivos intermediários ao terminar.
+
+No painel **Benchmark**, marque `cuda` em **Modos** para incluí-lo. O baseline `seq` sempre entra; para os modos CPU selecionados são usadas as contagens de threads marcadas, enquanto CUDA é uma configuração GPU única. O benchmark faz aquecimentos CPU e CUDA próprios, depois intercala aleatoriamente cada configuração em cada repetição. Os gráficos e a tabela incluem tempo total, leitura, cifra (incluindo cópias e kernel GPU), gravação, quadros/s, medianas, mínimos/máximos e speedups sobre `seq`. CUDA aparece como categoria `GPU`, sem eficiência por thread. O slider define o teto de memória CUDA como percentual da VRAM livre no início de cada execução. A estimativa na interface conta medições e aquecimentos. O benchmark GPU não é misturado às rodadas CPU antigas em gráficos: selecione uma rodada CUDA no histórico para ver os resultados correspondentes.
 
 > ⚠️ Para compilar com suporte a PNG, o `image_hill.c` precisa de `stb_image.h` e `stb_image_write.h` em `HillCypherCode/` ([nothings/stb](https://github.com/nothings/stb)). Esses arquivos ainda não estão no repositório.
 
@@ -182,7 +199,7 @@ Testado no Windows com MSVC 2022 e FFmpeg 9.0.1, e compilado sem avisos no GCC 1
 
 ## 📊 Análises
 
-A aba **5. Vídeo & Benchmarks** do site (`python server.py`) executa o programa C de verdade e gera as análises abaixo. Tudo que ela produz vai para `video_lab/`, que o git ignora.
+A aba **5. Vídeo & Benchmarks** do site (`python server.py`) executa os programas C/CUDA e o FFmpeg localmente, gerando as análises abaixo. Tudo que ela produz vai para `video_lab/`, que o git ignora.
 
 ### 1. Análise visual da cifra (um quadro)
 
@@ -208,16 +225,17 @@ Resultado no trecho de teste (`video.mp4`, a partir de 20 s, semente 123):
 
 É uma limitação da cifra, não do paralelismo. Uma correção possível seria torná-la afim, somando um vetor pseudoaleatório b derivado da semente e do índice: C = K·P + b. Isso não foi implementado, porque mudaria o algoritmo descrito no artigo.
 
-### 2. Benchmark: tempo × número de threads
+### 2. Benchmark: CPU × CUDA
 
-O benchmark roda `seq`, `omp` e `pipeline` com os números de threads escolhidos:
+O benchmark sempre inclui `seq` e pode rodar `omp` e `pipeline` com as contagens de threads escolhidas, além de uma configuração CUDA na GPU detectada. CPU e GPU são categorias distintas; CUDA não é contado como um número de threads CPU.
 
-- **Execução:** as configurações rodam várias vezes, em **ordem embaralhada**, depois de uma execução de aquecimento.
+- **Execução:** as configurações rodam várias vezes, em **ordem embaralhada**, depois de aquecimentos próprios da CPU e da GPU. CUDA participa uma vez por repetição, com o percentual de VRAM livre escolhido nos controles.
 - **Registro:** cada rodada é salva em `video_lab/benchmarks.json`.
-- **Gráficos:** tempo × threads (mediana, com mínimo e máximo), speedup sobre o `seq` (com a linha ideal) e divisão do tempo por etapa (leitura, cifra e gravação, com o tempo total marcado).
+- **Métricas:** tempo total, leitura, cifra, gravação, quadros por segundo e speedups total e da cifra sobre `seq`. O tempo de cifra CUDA inclui cópias host↔GPU e execução do kernel; leitura e gravação correspondem aos pipes de quadros.
+- **Gráficos:** tempo por configuração (mediana, com mínimo e máximo), speedup sobre o `seq` e divisão do tempo por etapa, com o tempo total marcado. A GPU aparece como categoria `GPU`; a eficiência por thread só se aplica aos modos CPU.
 - **Dados dinâmicos:** **os gráficos são gerados a partir das execuções reais** e mudam a cada rodada. As rodadas anteriores continuam disponíveis para comparação.
 
-Rodada de referência: trecho de 8 s em 1080p (241 quadros), 5 repetições, sem gravar em disco, num Intel i5-4670K com 4 núcleos e Windows 10. Os valores são medianas.
+Rodada de referência CPU: trecho de 8 s em 1080p (241 quadros), 5 repetições, sem gravar em disco, num Intel i5-4670K com 4 núcleos e Windows 10. Os valores abaixo são medianas e **não incluem CUDA**; use uma nova rodada CUDA para comparar a GPU no equipamento atual.
 
 | Configuração | Tempo total | Speedup total | Tempo da cifra | Speedup da cifra | Quadros/s |
 |---|---|---|---|---|---|
@@ -229,10 +247,10 @@ Rodada de referência: trecho de 8 s em 1080p (241 quadros), 5 repetições, sem
 
 O que os números mostram:
 
-1. **A cifra domina o tempo.** No `seq`, ela ocupa 78% do total, então é a parte certa para paralelizar.
-2. **O pipeline é o melhor modo.** Ele ganha porque leitura e gravação passam a acontecer ao mesmo tempo que a cifra. No gráfico de etapas, as barras do pipeline somam mais que o tempo total, e é justamente a sobreposição que faz isso.
-3. **O ganho fica bem abaixo do ideal** (4× com 4 threads). Com as 2 threads de E/S, o `pipeline 4+2` cria 6 threads para 4 núcleos, e elas ainda disputam o processador com os processos do FFmpeg. Mesmo isolada, sem FFmpeg, a cifra escalou só 2,1× a 2,4× nesta máquina. A causa ainda precisa ser investigada: vale repetir no Linux, com o computador sem outros programas abertos.
-4. **Os tempos variam entre execuções.** Outros programas, a temperatura e a frequência do processador interferem. Por isso cada configuração é repetida e o gráfico usa a mediana. Diferenças dentro da faixa entre mínimo e máximo não devem virar conclusão.
+1. **A cifra domina o tempo.** Na rodada CPU `seq`, ela ocupa 78% do total, então é a parte certa para paralelizar.
+2. **O pipeline é o melhor modo CPU medido.** Ele ganha porque leitura e gravação passam a acontecer ao mesmo tempo que a cifra. No gráfico de etapas, as barras do pipeline somam mais que o tempo total, e é justamente a sobreposição que faz isso.
+3. **O ganho CPU fica bem abaixo do ideal** (4× com 4 threads). Com as 2 threads de E/S, o `pipeline 4+2` cria 6 threads para 4 núcleos, e elas ainda disputam o processador com os processos do FFmpeg. Mesmo isolada, sem FFmpeg, a cifra escalou só 2,1× a 2,4× nesta máquina. A causa ainda precisa ser investigada: vale repetir no Linux, com o computador sem outros programas abertos.
+4. **Os tempos variam entre execuções.** Outros programas, a temperatura e a frequência do processador interferem. Por isso cada configuração é repetida e o gráfico usa a mediana. Diferenças dentro da faixa entre mínimo e máximo não devem virar conclusão. Para CUDA, compare também o tempo total, pois inclui FFmpeg e as transferências entre CPU e GPU.
 
 ### 3. O que descobrimos no caminho
 
@@ -240,6 +258,42 @@ O que os números mostram:
 - **O FFV1 não compensa no vídeo cifrado.** Ruído não comprime, e o codec virou o gargalo. Por isso o codec `raw` passou a ser o padrão.
 - **A medida do pipeline foi corrigida.** A primeira versão somava o tempo de cada thread de cifra separadamente, o que favorecia o pipeline (1,83 s em vez de 2,38 s). Hoje os dois modos medem a cifra pela thread mais lenta de cada quadro.
 - **Uma hipótese foi descartada.** Suspeitamos que as threads do `omp` demoravam a "acordar" entre quadros (o relógio do Windows tem resolução de 15,6 ms). Um teste com e sem pausa entre as regiões paralelas deu o mesmo tempo, então não era isso.
+
+### 4. Protocolo do artigo (tempo + energia na mesma máquina)
+
+Os experimentos do artigo rodam pela linha de comando, sem o site, para atender à revisão do WPADS: mesmo escopo de tempo em todas as versões, energia da CPU e da GPU na mesma janela, verificação de que descartar a saída não muda os bytes cifrados, e média ± dispersão com testes estatísticos.
+
+**Preparar a máquina.** Os experimentos rodam no **Ubuntu do WSL 2**. No Windows 11 com o Controle Inteligente de Aplicativos ligado, o instalador do CUDA e os `.exe` sem assinatura são bloqueados; no WSL, nada disso acontece. Só o HWiNFO roda no Windows, porque o WSL não expõe o RAPL da CPU.
+
+```powershell
+winget install --id REALiX.HWiNFO --exact                      # Windows: potência do pacote da CPU
+wsl -d Ubuntu -u root -- apt install -y ffmpeg nvidia-cuda-toolkit rsync g++-13
+wsl -d Ubuntu -- bash preparar_wsl.sh                          # copia para ~/pcd e compila (GCC + nvcc)
+```
+
+O `preparar_wsl.sh` copia o projeto para `~/pcd`, porque ler o vídeo por `/mnt/c` mediria o compartilhamento de arquivos. Ele grava o commit em `.commit`, compila o `video_hill` com GCC e o backend CUDA com `NVCC_CCBIN=g++-13`, já que o CUDA 12.4 do Ubuntu não aceita o GCC 15. Rode de novo a cada mudança no código.
+
+**Rodar:**
+
+1. Notebook na tomada, plano de energia de alto desempenho, outros programas fechados.
+2. No HWiNFO (*Sensors only*), ajuste o intervalo de leitura para 100 ms e ative **Logging** em CSV.
+3. Lote principal (saída descartada, trecho de 30 s ≈ 900 quadros, para que até as execuções mais rápidas durem alguns segundos):
+   ```powershell
+   wsl -d Ubuntu -- bash -lc "cd ~/pcd && NVCC_CCBIN=g++-13 python3 benchmark.py --modos seq omp pipeline cuda --threads 1 2 4 6 8 10 12 14 16 --reps 10 --segundos 30 --rotulo principal"
+   ```
+4. Pare o log do HWiNFO e analise. O `analisar.py` usa o fuso do Windows e a diferença entre os relógios, registrados em `meta.json`:
+   ```powershell
+   wsl -d Ubuntu -- bash -lc "cd ~/pcd && python3 analisar.py resultados/<id>-principal --hwinfo /mnt/c/caminho/hwinfo.csv"
+   ```
+5. Lote de sensibilidade (gravando em disco), com a melhor configuração de cada modo segundo o passo 4, usando `--saida disco --rotulo disco`.
+6. Copie `~/pcd/resultados/` de volta para o repositório (`\\wsl$\Ubuntu\root\pcd\resultados`).
+
+**O que cada script faz:**
+
+- `benchmark.py`: antes de medir, roda cada configuração com a saída `hash` (SHA-256 dos quadros cifrados, sem disco) e só continua se todas derem o mesmo hash do `seq` e se a ida e volta devolver os quadros originais. Depois mede 30 s ocioso, faz o aquecimento e as repetições em ordem embaralhada, com pausa entre execuções. Também amostra a potência da GPU (`nvidia-smi`, `power.draw.instant`, a cada 100 ms) e mede mais 30 s ocioso no fim. Cada execução vai para `resultados/<id>/execucoes.csv` com `inicio_epoch`/`fim_epoch`, e `meta.json` guarda a máquina, as versões, o commit e o resultado da verificação.
+- `analisar.py`: integra a potência da CPU (HWiNFO) e da GPU na janela de cada execução e desconta a potência ociosa para a energia líquida. Calcula média, dp, CV, IC95 (t), speedup com IC95 (bootstrap) e testes de Welch com correção de Holm. Gera `resumo.csv`, `comparacoes.csv` e `tabelas.tex`, e também aceita `video_lab/benchmarks.json` ou um CSV com uma linha por execução.
+
+**Escopo das medidas:** `tempo_total` vai da abertura do FFmpeg de leitura até o fim do FFmpeg de saída, nas quatro versões. No `cuda`, ele também inclui iniciar o processo e criar o contexto da GPU, que vêm separados em `init_gpu`; o analisador calcula `tempo_sem_init`. No `cuda`, `cifra` = cópia→GPU + kernel + cópia←GPU, com cada parte em `copia_h2d`, `kernel` e `copia_d2h` (eventos CUDA).
 
 ### Limitações
 
@@ -324,26 +378,28 @@ Para permitir que qualquer integrante do grupo (ou o professor) compreenda o alg
    - Cifragem e decifragem em Web Workers, usando a mesma geração de matrizes do código C.
    - Matriz e multiplicação linha por linha do bloco selecionado, divisão estática dos blocos entre workers e download em PNG ou PGM/PPM.
    - O tempo mostrado pertence ao navegador; os benchmarks do artigo devem usar o programa C.
-5. **5. Vídeo & Benchmarks** (precisa de `python server.py`, do FFmpeg e do `video_hill` compilado):
-   - Explicação dos modos `seq`, `omp` e `pipeline`, com linhas do tempo de cada um e o significado de “3+2”.
+5. **5. Vídeo & Benchmarks** (precisa de `python server.py`, FFmpeg e `video_hill` compilado para modos CPU; CUDA é opcional):
+   - Explicação dos modos CPU `seq`, `omp` e `pipeline`, com linhas do tempo de cada um e o significado de “3+2”; modo `cuda` processa quadros em lotes limitados pela VRAM livre.
    - Laboratório: cifra e decifra um trecho do `video.mp4`, mostra original, cifrado e decifrado sincronizados e confere o SHA-256 dos quadros.
    - Análise visual de um quadro: histogramas, entropia e correlação dos planos Y, U e V, com detecção do vazamento.
-   - Benchmark: tempo × threads, speedup e divisão do tempo por etapa, gerados a partir das execuções reais.
+   - Benchmark: baseline `seq`, configurações CPU por threads e configuração CUDA GPU opcional; compara tempo total, etapas, FPS, speedup e faixas de variação a partir das execuções reais.
 
 ### Como rodar a aplicação web:
 ```bash
 python server.py
 ```
-Acesse no navegador: **`http://localhost:8085`**. O `server.py` serve o site e atende a aba **5. Vídeo & Benchmarks**, que executa o `video_hill` e o FFmpeg na sua máquina. Ele usa só a biblioteca padrão do Python e escuta apenas em `127.0.0.1`. As abas 1 a 4 também funcionam com `python -m http.server 8085` ou `npx serve .`. A aba de imagens usa módulos JavaScript e Web Workers, por isso precisa de um servidor local.
+Acesse no navegador: **`http://localhost:8085`**. O `server.py` serve o site e atende a aba **5. Vídeo & Benchmarks**, executando `video_hill`/FFmpeg nos modos CPU e o backend CUDA/FFmpeg quando CUDA estiver disponível. O servidor usa só a biblioteca padrão do Python e escuta apenas em `127.0.0.1`. As abas 1 a 4 também funcionam com `python -m http.server 8085` ou `npx serve .`; os modos CUDA precisam de `server.py`, porque o navegador envia os dados ao backend local. A aba de imagens usa módulos JavaScript e Web Workers, por isso também precisa de um servidor local.
 
 A aba de vídeo precisa de três coisas:
 - `video.mp4` na pasta do projeto;
 - FFmpeg instalado (o servidor também encontra a instalação feita pelo winget);
 - `video_hill` compilado na raiz do projeto (`video_hill.exe` no Windows), com os comandos da seção *Experimento com vídeos*.
 
+O modo GPU de imagem e vídeo e o benchmark CUDA são opcionais: exigem GPU NVIDIA compatível, driver, CUDA Toolkit e MSVC no Windows, conforme a seção *Modos GPU CUDA na interface*. O baseline `seq` continua obrigatório em cada rodada de benchmark, então os modos CPU permanecem necessários para a comparação.
+
 O que a aba faz:
 - **Laboratório:** recorta um trecho do vídeo, cifra, decifra, compara o SHA-256 dos quadros e mostra os três vídeos sincronizados (original, cifrado e decifrado). Também mostra os tempos impressos pelo programa e a análise de um quadro: histogramas, entropia e correlação entre vizinhos dos planos Y, U e V.
-- **Benchmark:** roda `seq`, `omp` e `pipeline` com os números de threads escolhidos, em ordem embaralhada e com repetições. Os resultados ficam em `video_lab/benchmarks.json` e aparecem em gráficos de tempo × threads, speedup e divisão do tempo por etapa. A opção *Descartar a saída* (`video_hill ... -`) tira o disco da medição.
+- **Benchmark:** sempre roda `seq`; também pode rodar `omp` e `pipeline` com os números de threads escolhidos e, opcionalmente, uma configuração `cuda`. Faz aquecimento próprio e repetições em ordem embaralhada. Os resultados ficam em `video_lab/benchmarks.json` e aparecem em gráficos de tempo por configuração, speedup e divisão por leitura/cifra/gravação. CUDA é mostrado como GPU, não como contagem de threads. A opção *Descartar a saída* evita manter a saída de vídeo no disco durante a medição.
 
 Tudo que é gerado vai para `video_lab/`, que o git ignora.
 
@@ -395,13 +451,14 @@ parallel_Hill_Cipher/
 ├── image-worker.mjs            # Execução paralela no navegador
 ├── image-demo.mjs              # Interface do laboratório de imagens
 ├── video-lab.mjs               # Aba de vídeo: laboratório, análise do quadro e gráficos do benchmark
-├── server.py                   # Servidor local: site + API que executa video_hill e FFmpeg
+├── server.py                   # Servidor local: site + APIs de imagem CUDA, vídeo CUDA/CPU e benchmarks
 ├── video.mp4                   # Video de teste (1080p, 79 s)
 ├── video_lab/                  # Saidas do laboratorio e benchmarks.json (gerado, ignorado pelo git)
 ├── tanayseven_hill_cipher.c    # Código em C de referência compilável
 ├── HillCypherCode/
 │   ├── hillcypherOMP.c         # Experimento anterior com texto modulo 26
 │   ├── image_hill.c            # Cifra experimental de imagens seq/OMP/Pthreads
+│   ├── image_hill_cuda.cu      # Backend CUDA: imagens em lotes e vídeo em streaming
 │   ├── hill_block.h            # Núcleo da cifra (mix e block) usado pelo vídeo
 │   └── video_hill.c            # Cifra de vídeo quadro a quadro: seq/OMP/pipeline
 ├── tests/test_image_hill.py    # Testes de recuperacao e equivalencia (planejado, ainda nao existe)

@@ -731,8 +731,11 @@
           <button id="image-sample" class="btn-secondary" type="button">Usar exemplo</button>
           <label class="image-field" for="image-seed">Semente decimal<input id="image-seed" type="text" inputmode="numeric" value="123456789" aria-describedby="image-seed-hint"></label>
           <label class="image-field" for="image-threads">Workers no navegador <output id="image-thread-value">4</output><input id="image-threads" type="range" min="1" max="8" value="4"></label>
+          <label class="image-field" for="image-backend">Processador<select id="image-backend"><option value="cpu">CPU · Web Workers</option><option value="cuda" disabled>GPU · CUDA indisponível</option></select></label>
+          <label class="image-field" for="image-memory">Limite da VRAM livre <output id="image-memory-value">60%</output><input id="image-memory" type="range" min="10" max="80" step="10" value="60" disabled></label>
         </div>
-        <p id="image-seed-hint" class="image-hint">A semente é didática. Use a mesma ao decifrar. O navegador usa Web Workers; o programa C usa OpenMP ou Pthreads.</p>
+        <p id="image-seed-hint" class="image-hint">A semente é didática. Use a mesma ao decifrar. CPU usa Web Workers; GPU CUDA processa os blocos em lotes no servidor local.</p>
+        <p id="image-gpu-hint" class="image-hint" role="status">Verificando o backend CUDA local…</p>
 
         <div class="image-actions">
           <button id="image-encrypt" class="btn-primary" type="button">Cifrar imagem</button>
@@ -768,10 +771,10 @@
         </section>
         <section class="timeline-card">
           <span class="step-badge">Paralelização</span>
-          <h3 class="timeline-title">Cada thread recebe um intervalo</h3>
-          <p>O escalonamento estático do OpenMP e a divisão por intervalos do Pthreads percorrem blocos distintos. A matriz depende do índice do bloco, então o resultado permanece igual com 1 ou 8 threads.</p>
+          <h3 id="image-parallel-title" class="timeline-title">Cada worker recebe um intervalo</h3>
+          <p id="image-parallel-copy">O escalonamento estático do OpenMP e a divisão por intervalos do Pthreads percorrem blocos distintos. A matriz depende do índice do bloco, então o resultado permanece igual com 1 ou 8 workers.</p>
           <div id="image-thread-map" class="image-thread-map"></div>
-          <p class="image-thread-example">No desenho, cada barra colorida representa a parte da imagem atribuída a uma thread. Alterar o controle “Workers no navegador” muda a divisão, mas não os bytes produzidos.</p>
+          <p id="image-thread-example" class="image-thread-example">No desenho, cada barra colorida representa a parte da imagem atribuída a um worker. Alterar o controle “Workers no navegador” muda a divisão, mas não os bytes produzidos.</p>
           <p class="image-hint">A tela executa Web Workers para demonstrar o paralelismo no navegador. Os tempos aqui incluem criação dos workers e não são resultados de benchmark do código C.</p>
         </section>
       </div>
@@ -850,14 +853,17 @@
               <option value="seq">seq: sequencial</option>
               <option value="omp">omp: parallel for</option>
               <option value="pipeline" selected>pipeline: E/S sobreposta</option>
+              <option value="cuda" disabled>cuda: NVIDIA GPU indisponível</option>
             </select>
           </label>
           <label class="image-field" for="video-threads">Threads de cifra <output id="video-threads-value">3</output><input id="video-threads" type="range" min="1" max="8" value="3"></label>
+          <label class="image-field" for="video-memory">Limite da VRAM livre <output id="video-memory-value">60%</output><input id="video-memory" type="range" min="10" max="80" step="10" value="60" disabled></label>
           <label class="image-field" for="video-seed">Semente<input id="video-seed" type="text" inputmode="numeric" value="123"></label>
           <label class="image-field" for="video-start">Início (s)<input id="video-start" type="number" min="0" value="20"></label>
           <label class="image-field" for="video-seconds">Duração (s)<input id="video-seconds" type="number" min="1" max="30" value="8"></label>
         </div>
         <p id="video-threads-hint" class="image-hint">No pipeline, o programa usa estas threads para a cifra e mais 2 para leitura e gravação.</p>
+        <p id="video-cuda-hint" class="image-hint" role="status">Verificando backend CUDA…</p>
 
         <div class="image-actions">
           <button id="video-run" class="btn-primary" type="button">Cifrar e decifrar</button>
@@ -900,18 +906,20 @@
 
       <section class="timeline-card video-bench">
         <span class="step-badge">Benchmark</span>
-        <h3 class="timeline-title">Tempo × número de threads</h3>
-        <p>Cada configuração roda várias vezes, em ordem embaralhada, sobre o mesmo trecho. O <code>seq</code> sempre entra, porque é a base do speedup. Os pontos mostram a mediana; as barras finas, o menor e o maior tempo.</p>
-        <p class="video-note-info"><strong>Os gráficos são gerados com dados reais.</strong> Cada clique em “Rodar benchmark” executa o programa C de novo e salva uma nova <em>rodada</em> em <code>video_lab/benchmarks.json</code>; as rodadas anteriores continuam disponíveis em “Rodada”. Os tempos variam entre execuções: outros programas abertos, temperatura e frequência do processador e o próprio FFmpeg interferem. Por isso cada configuração se repete e o gráfico usa a mediana. Diferenças menores que a faixa entre o mínimo e o máximo não devem ser tratadas como conclusão. A análise do quadro, ao contrário, sempre dá o mesmo resultado para o mesmo trecho e a mesma semente.</p>
+        <h3 class="timeline-title">Comparação de desempenho: CPU × CUDA</h3>
+        <p>Compare <code>seq</code>, OpenMP, pipeline e CUDA sobre o mesmo trecho. O <code>seq</code> sempre entra como base do speedup. CUDA aparece como uma configuração GPU separada; os pontos mostram a mediana e as barras finas, o menor e o maior tempo.</p>
+        <p class="video-note-info"><strong>Os gráficos são gerados com dados reais.</strong> Cada clique em “Rodar benchmark” executa as configurações novamente e salva uma nova <em>rodada</em> em <code>video_lab/benchmarks.json</code>; as rodadas anteriores continuam disponíveis em “Rodada”. Cada modo selecionado roda várias vezes em ordem embaralhada; as medianas, mínimos e máximos são comparados. A configuração CUDA tem aquecimento próprio e mede leitura, transferência/cifra GPU e gravação; o limite de VRAM escolhido aplica-se a cada execução CUDA. Diferenças menores que a faixa entre o mínimo e o máximo não devem ser tratadas como conclusão.</p>
         <div class="video-bench-controls">
           <fieldset class="video-fieldset"><legend>Modos</legend>
             <label><input type="checkbox" checked disabled> seq</label>
             <label><input type="checkbox" name="bench-mode" value="omp" checked> omp</label>
             <label><input type="checkbox" name="bench-mode" value="pipeline" checked> pipeline</label>
+            <label><input id="bench-cuda" type="checkbox" name="bench-mode" value="cuda" disabled> cuda</label>
           </fieldset>
           <fieldset class="video-fieldset"><legend>Threads de cifra</legend><div id="bench-threads"></div></fieldset>
           <label class="image-field" for="bench-reps">Repetições<input id="bench-reps" type="number" min="1" max="20" value="3"></label>
           <label class="image-field" for="bench-seconds">Duração (s)<input id="bench-seconds" type="number" min="1" max="30" value="8"></label>
+          <label class="image-field" for="bench-cuda-memory">Limite CUDA <output id="bench-cuda-memory-value">60%</output><input id="bench-cuda-memory" type="range" min="10" max="80" step="10" value="60" disabled></label>
           <label class="video-toggle"><input id="bench-discard" type="checkbox" checked> Descartar a saída (mede sem o disco)</label>
         </div>
         <div class="image-actions">

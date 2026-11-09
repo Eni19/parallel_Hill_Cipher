@@ -1,0 +1,28 @@
+Relogio Windows - benchmark: -0.004 s (deriva no lote: +0.004 s); fuso do Windows: -180 min
+nvidia-smi: 1659 amostras de potencia da GPU
+Aviso: 1 execucoes fora do intervalo do registro de gpu
+
+config           n     media       dp    CV%                 IC95%  speedup   metrica
+seq              3    12.274    0.037    0.3      [12.184; 12.365]     1.00   tempo_total
+omp 10           3     7.406    0.051    0.7        [7.280; 7.533]     1.66   tempo_total
+omp 14           3     6.079    0.945   15.5        [3.732; 8.425]     2.02   tempo_total
+pipeline 10+2    3     3.333    0.210    6.3        [2.810; 3.856]     3.68   tempo_total
+pipeline 14+2    3     6.036    0.315    5.2        [5.255; 6.817]     2.03   tempo_total
+cuda             3     4.926    0.141    2.9        [4.575; 5.277]     2.49   tempo_total
+
+Comparacoes (Welch, p corrigido por Holm):
+ * tempo_total      pipeline 10+2 x cuda           dif=-1.593 (-32.3%) IC95=[-2.023; -1.163] p_holm=0.0032
+   tempo_total             omp 10 x omp 14         dif=+1.328 (+21.8%) IC95=[-1.009; +3.665] p_holm=0.2698
+ * tempo_total      pipeline 10+2 x pipeline 14+2  dif=-2.703 (-44.8%) IC95=[-3.346; -2.060] p_holm=0.0029
+   tempo_total             omp 14 x pipeline 10+2  dif=+2.746 (+82.4%) IC95=[+0.538; +4.954] p_holm=0.0965
+   tempo_total             omp 14 x cuda           dif=+1.153 (+23.4%) IC95=[-1.125; +3.430] p_holm=0.2698
+ * tempo_total             omp 10 x pipeline 10+2  dif=+4.073 (+122.2%) IC95=[+3.586; +4.561] p_holm=0.0029
+ * tempo_total             omp 10 x seq            dif=-4.868 (-39.7%) IC95=[-4.973; -4.763] p_holm=0.0000
+ * cifra                     cuda x omp 10         dif=-0.349 (-17.9%) IC95=[-0.541; -0.158] p_holm=0.0241
+   cifra                   omp 10 x omp 14         dif=-0.186 (-8.7%) IC95=[-0.552; +0.180] p_holm=0.1708
+ * cifra            pipeline 10+2 x pipeline 14+2  dif=-0.920 (-29.6%) IC95=[-1.152; -0.688] p_holm=0.0077
+ * cifra                   omp 10 x pipeline 10+2  dif=-0.236 (-10.8%) IC95=[-0.317; -0.155] p_holm=0.0064
+ * cifra            pipeline 10+2 x cuda           dif=+0.585 (+36.5%) IC95=[+0.396; +0.775] p_holm=0.0090
+ * cifra                   omp 10 x seq            dif=-6.905 (-77.9%) IC95=[-6.976; -6.834] p_holm=0.0000
+
+Arquivos em resultados/20261109-144324-sens-null: resumo.csv, comparacoes.csv, tabelas.tex

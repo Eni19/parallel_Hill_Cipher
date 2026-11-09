@@ -1,0 +1,58 @@
+% Gerado por analisar.py a partir de 20261109-144324-sens-null
+% media +- desvio padrao amostral; IC95 da media pela distribuicao t; speedup com IC95 por bootstrap.
+
+\begin{tabular}{lrrrrr}
+\hline
+\textbf{Config.} & \textbf{n} & \textbf{T. total (s)} & \textbf{IC95\% (s)} & \textbf{Speedup [IC95\%]} & \textbf{T. cifra (s)} \\
+\hline
+\texttt{seq} & 3 & 12,274 $\pm$ 0,037 & [12,184; 12,365] & 1,00 & 8,859 $\pm$ 0,020 \\
+\texttt{omp 10} & 3 & 7,406 $\pm$ 0,051 & [7,280; 7,533] & 1,66 [1,65; 1,67] & 1,954 $\pm$ 0,035 \\
+\texttt{omp 14} & 3 & 6,079 $\pm$ 0,945 & [3,732; 8,425] & 2,02 [1,72; 2,32] & 2,140 $\pm$ 0,157 \\
+\texttt{pipeline 10+2} & 3 & 3,333 $\pm$ 0,210 & [2,810; 3,856] & 3,68 [3,44; 3,88] & 2,190 $\pm$ 0,037 \\
+\texttt{pipeline 14+2} & 3 & 6,036 $\pm$ 0,315 & [5,255; 6,817] & 2,03 [1,94; 2,15] & 3,110 $\pm$ 0,105 \\
+\texttt{cuda} & 3 & 4,926 $\pm$ 0,141 & [4,575; 5,277] & 2,49 [2,43; 2,57] & 1,605 $\pm$ 0,089 \\
+\hline
+\end{tabular}
+
+% Decomposicao do tempo do CUDA (s)
+\begin{tabular}{lrrrrr}
+\hline
+\textbf{Config.} & \textbf{Inicializa\c{c}\~ao} & \textbf{C\'opia CPU$\to$GPU} & \textbf{Kernel} & \textbf{C\'opia GPU$\to$CPU} & \textbf{Total sem init.} \\
+\hline
+\texttt{cuda} & 0,200 $\pm$ 0,012 & 0,730 $\pm$ 0,049 & 0,112 $\pm$ 0,001 & 0,650 $\pm$ 0,033 & 4,726 $\pm$ 0,142 \\
+\hline
+\end{tabular}
+
+\begin{tabular}{lr}
+\hline
+\textbf{Config.} & \textbf{$E_{GPU}$ (J)} \\
+\hline
+\texttt{seq} & 86,1 $\pm$ 4,2 \\
+\texttt{omp 10} & 54,9 $\pm$ 4,4 \\
+\texttt{omp 14} & 40,3 $\pm$ 5,9 \\
+\texttt{pipeline 10+2} & 22,7 $\pm$ 1,5 \\
+\texttt{pipeline 14+2} & 39,3 $\pm$ 2,4 \\
+\texttt{cuda} & 59,5 $\pm$ 1,9 \\
+\hline
+\end{tabular}
+
+% Comparacoes: teste t de Welch, p corrigido por Holm dentro de cada metrica
+\begin{tabular}{llrrr}
+\hline
+\textbf{M\'etrica} & \textbf{A $\times$ B} & \textbf{A$-$B [IC95\%]} & \textbf{Dif. (\%)} & \textbf{$p$ (Holm)} \\
+\hline
+tempo\_total & \texttt{pipeline 10+2} $\times$ \texttt{cuda} & -1,593 [-2,023; -1,163] & -32,3 & 0,003 \\
+tempo\_total & \texttt{omp 10} $\times$ \texttt{omp 14} & 1,328 [-1,009; 3,665] & 21,8 & 0,270 \\
+tempo\_total & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 14+2} & -2,703 [-3,346; -2,060] & -44,8 & 0,003 \\
+tempo\_total & \texttt{omp 14} $\times$ \texttt{pipeline 10+2} & 2,746 [0,538; 4,954] & 82,4 & 0,096 \\
+tempo\_total & \texttt{omp 14} $\times$ \texttt{cuda} & 1,153 [-1,125; 3,430] & 23,4 & 0,270 \\
+tempo\_total & \texttt{omp 10} $\times$ \texttt{pipeline 10+2} & 4,073 [3,586; 4,561] & 122,2 & 0,003 \\
+tempo\_total & \texttt{omp 10} $\times$ \texttt{seq} & -4,868 [-4,973; -4,763] & -39,7 & $<$0,001 \\
+cifra & \texttt{cuda} $\times$ \texttt{omp 10} & -0,349 [-0,541; -0,158] & -17,9 & 0,024 \\
+cifra & \texttt{omp 10} $\times$ \texttt{omp 14} & -0,186 [-0,552; 0,180] & -8,7 & 0,171 \\
+cifra & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 14+2} & -0,920 [-1,152; -0,688] & -29,6 & 0,008 \\
+cifra & \texttt{omp 10} $\times$ \texttt{pipeline 10+2} & -0,236 [-0,317; -0,155] & -10,8 & 0,006 \\
+cifra & \texttt{pipeline 10+2} $\times$ \texttt{cuda} & 0,585 [0,396; 0,775] & 36,5 & 0,009 \\
+cifra & \texttt{omp 10} $\times$ \texttt{seq} & -6,905 [-6,976; -6,834] & -77,9 & $<$0,001 \\
+\hline
+\end{tabular}

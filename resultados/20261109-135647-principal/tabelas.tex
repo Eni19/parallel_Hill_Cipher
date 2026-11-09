@@ -1,0 +1,201 @@
+% Gerado por analisar.py a partir de 20261109-135647-principal
+% media +- desvio padrao amostral; IC95 da media pela distribuicao t; speedup com IC95 por bootstrap.
+
+\begin{tabular}{lrrrrr}
+\hline
+\textbf{Config.} & \textbf{n} & \textbf{T. total (s)} & \textbf{IC95\% (s)} & \textbf{Speedup [IC95\%]} & \textbf{T. cifra (s)} \\
+\hline
+\texttt{seq} & 10 & 12,096 $\pm$ 0,051 & [12,060; 12,132] & 1,00 & 8,766 $\pm$ 0,022 \\
+\texttt{omp 1} & 9 & 12,037 $\pm$ 0,066 & [11,986; 12,088] & 1,00 [1,00; 1,01] & 8,756 $\pm$ 0,028 \\
+\texttt{omp 2} & 9 & 7,672 $\pm$ 0,049 & [7,634; 7,709] & 1,58 [1,57; 1,58] & 4,648 $\pm$ 0,027 \\
+\texttt{omp 4} & 10 & 6,254 $\pm$ 0,223 & [6,094; 6,414] & 1,93 [1,89; 1,97] & 3,136 $\pm$ 0,127 \\
+\texttt{omp 6} & 10 & 6,301 $\pm$ 0,229 & [6,138; 6,465] & 1,92 [1,87; 1,95] & 2,742 $\pm$ 0,028 \\
+\texttt{omp 8} & 10 & 6,842 $\pm$ 0,175 & [6,717; 6,967] & 1,77 [1,74; 1,80] & 2,193 $\pm$ 0,015 \\
+\texttt{omp 10} & 9 & 7,217 $\pm$ 0,089 & [7,149; 7,285] & 1,68 [1,66; 1,69] & 1,878 $\pm$ 0,017 \\
+\texttt{omp 12} & 10 & 5,833 $\pm$ 0,400 & [5,548; 6,119] & 2,07 [2,00; 2,16] & 1,733 $\pm$ 0,050 \\
+\texttt{omp 14} & 9 & 5,578 $\pm$ 0,356 & [5,304; 5,852] & 2,17 [2,09; 2,26] & 2,053 $\pm$ 0,125 \\
+\texttt{omp 16} & 10 & 7,455 $\pm$ 0,437 & [7,142; 7,767] & 1,62 [1,56; 1,67] & 4,053 $\pm$ 0,430 \\
+\texttt{pipeline 1+2} & 10 & 9,181 $\pm$ 0,067 & [9,133; 9,229] & 1,32 [1,31; 1,32] & 9,092 $\pm$ 0,068 \\
+\texttt{pipeline 2+2} & 10 & 5,233 $\pm$ 0,084 & [5,173; 5,293] & 2,31 [2,29; 2,33] & 5,148 $\pm$ 0,085 \\
+\texttt{pipeline 4+2} & 10 & 4,028 $\pm$ 0,048 & [3,993; 4,062] & 3,00 [2,98; 3,02] & 3,619 $\pm$ 0,069 \\
+\texttt{pipeline 6+2} & 10 & 3,848 $\pm$ 0,044 & [3,817; 3,879] & 3,14 [3,12; 3,17] & 2,813 $\pm$ 0,022 \\
+\texttt{pipeline 8+2} & 10 & 3,737 $\pm$ 0,073 & [3,685; 3,789] & 3,24 [3,20; 3,28] & 2,298 $\pm$ 0,031 \\
+\texttt{pipeline 10+2} & 10 & 3,166 $\pm$ 0,185 & [3,034; 3,299] & 3,82 [3,69; 3,96] & 2,086 $\pm$ 0,047 \\
+\texttt{pipeline 12+2} & 9 & 3,530 $\pm$ 0,127 & [3,433; 3,627] & 3,43 [3,35; 3,50] & 2,278 $\pm$ 0,079 \\
+\texttt{pipeline 14+2} & 9 & 5,766 $\pm$ 0,259 & [5,567; 5,966] & 2,10 [2,04; 2,16] & 2,962 $\pm$ 0,108 \\
+\texttt{pipeline 16+2} & 10 & 3,762 $\pm$ 0,050 & [3,726; 3,798] & 3,22 [3,19; 3,24] & 1,337 $\pm$ 0,030 \\
+\texttt{cuda} & 10 & 4,688 $\pm$ 0,051 & [4,652; 4,724] & 2,58 [2,56; 2,60] & 1,509 $\pm$ 0,043 \\
+\hline
+\end{tabular}
+
+% Decomposicao do tempo do CUDA (s)
+\begin{tabular}{lrrrrr}
+\hline
+\textbf{Config.} & \textbf{Inicializa\c{c}\~ao} & \textbf{C\'opia CPU$\to$GPU} & \textbf{Kernel} & \textbf{C\'opia GPU$\to$CPU} & \textbf{Total sem init.} \\
+\hline
+\texttt{cuda} & 0,186 $\pm$ 0,019 & 0,691 $\pm$ 0,025 & 0,099 $\pm$ 0,001 & 0,618 $\pm$ 0,015 & 4,502 $\pm$ 0,048 \\
+\hline
+\end{tabular}
+
+\begin{tabular}{lrrrrrr}
+\hline
+\textbf{Config.} & \textbf{P. m\'edia CPU (W)} & \textbf{$E_{CPU}$ (J)} & \textbf{$E_{GPU}$ (J)} & \textbf{$E_{CPU+GPU}$ (J)} & \textbf{$E$ l\'iquida (J)} & \textbf{J/quadro} \\
+\hline
+\texttt{seq} & 35,2 $\pm$ 0,4 & 425,5 $\pm$ 5,2 & 78,9 $\pm$ 0,5 & 504,5 $\pm$ 5,3 & 154,0 $\pm$ 4,9 & 0,5599 $\pm$ 0,0059 \\
+\texttt{omp 1} & 35,7 $\pm$ 0,6 & 429,8 $\pm$ 5,7 & 78,8 $\pm$ 1,1 & 508,6 $\pm$ 5,6 & 159,8 $\pm$ 6,6 & 0,5645 $\pm$ 0,0062 \\
+\texttt{omp 2} & 44,5 $\pm$ 1,3 & 341,2 $\pm$ 10,7 & 49,6 $\pm$ 0,6 & 390,8 $\pm$ 10,8 & 168,5 $\pm$ 10,1 & 0,4337 $\pm$ 0,0120 \\
+\texttt{omp 4} & 54,7 $\pm$ 2,1 & 342,6 $\pm$ 24,3 & 40,0 $\pm$ 1,4 & 382,7 $\pm$ 25,6 & 201,5 $\pm$ 19,5 & 0,4247 $\pm$ 0,0284 \\
+\texttt{omp 6} & 58,3 $\pm$ 1,2 & 367,8 $\pm$ 19,7 & 39,9 $\pm$ 1,3 & 407,8 $\pm$ 20,8 & 225,2 $\pm$ 14,5 & 0,4526 $\pm$ 0,0231 \\
+\texttt{omp 8} & 58,4 $\pm$ 1,1 & 399,3 $\pm$ 8,5 & 43,5 $\pm$ 1,2 & 442,9 $\pm$ 9,2 & 244,6 $\pm$ 6,3 & 0,4915 $\pm$ 0,0102 \\
+\texttt{omp 10} & 60,0 $\pm$ 0,8 & 432,7 $\pm$ 8,6 & 46,4 $\pm$ 1,1 & 479,1 $\pm$ 9,0 & 270,0 $\pm$ 7,1 & 0,5318 $\pm$ 0,0100 \\
+\texttt{omp 12} & 62,0 $\pm$ 2,1 & 361,2 $\pm$ 22,3 & 37,4 $\pm$ 2,5 & 398,6 $\pm$ 24,4 & 229,5 $\pm$ 14,9 & 0,4424 $\pm$ 0,0270 \\
+\texttt{omp 14} & 62,4 $\pm$ 1,5 & 348,0 $\pm$ 19,1 & 35,5 $\pm$ 2,6 & 383,5 $\pm$ 21,4 & 221,9 $\pm$ 12,1 & 0,4257 $\pm$ 0,0238 \\
+\texttt{omp 16} & 58,7 $\pm$ 0,9 & 437,3 $\pm$ 27,1 & 47,0 $\pm$ 2,6 & 484,3 $\pm$ 29,6 & 268,3 $\pm$ 17,5 & 0,5375 $\pm$ 0,0329 \\
+\texttt{pipeline 1+2} & 45,9 $\pm$ 0,8 & 421,7 $\pm$ 8,2 & 59,4 $\pm$ 1,3 & 481,1 $\pm$ 9,4 & 215,1 $\pm$ 8,7 & 0,5340 $\pm$ 0,0105 \\
+\texttt{pipeline 2+2} & 58,1 $\pm$ 1,6 & 303,9 $\pm$ 10,8 & 33,2 $\pm$ 0,7 & 337,1 $\pm$ 11,2 & 185,4 $\pm$ 9,7 & 0,3741 $\pm$ 0,0124 \\
+\texttt{pipeline 4+2} & 68,4 $\pm$ 2,4 & 275,4 $\pm$ 12,4 & 25,9 $\pm$ 0,6 & 301,3 $\pm$ 12,6 & 184,6 $\pm$ 11,4 & 0,3344 $\pm$ 0,0140 \\
+\texttt{pipeline 6+2} & 70,1 $\pm$ 2,6 & 269,6 $\pm$ 10,7 & 25,2 $\pm$ 0,6 & 294,8 $\pm$ 11,0 & 183,3 $\pm$ 10,5 & 0,3272 $\pm$ 0,0122 \\
+\texttt{pipeline 8+2} & 70,9 $\pm$ 1,7 & 264,8 $\pm$ 7,0 & 24,4 $\pm$ 0,6 & 289,1 $\pm$ 7,4 & 180,9 $\pm$ 6,6 & 0,3209 $\pm$ 0,0082 \\
+\texttt{pipeline 10+2} & 72,6 $\pm$ 2,2 & 229,6 $\pm$ 11,5 & 20,9 $\pm$ 1,1 & 250,5 $\pm$ 12,5 & 158,8 $\pm$ 8,1 & 0,2780 $\pm$ 0,0139 \\
+\texttt{pipeline 12+2} & 68,7 $\pm$ 2,4 & 242,2 $\pm$ 8,8 & 22,8 $\pm$ 1,0 & 265,0 $\pm$ 9,2 & 162,8 $\pm$ 7,5 & 0,2942 $\pm$ 0,0103 \\
+\texttt{pipeline 14+2} & 61,8 $\pm$ 1,6 & 356,1 $\pm$ 10,2 & 36,9 $\pm$ 1,7 & 393,0 $\pm$ 11,7 & 225,9 $\pm$ 6,4 & 0,4361 $\pm$ 0,0130 \\
+\texttt{pipeline 16+2} & 65,3 $\pm$ 1,8 & 245,7 $\pm$ 9,4 & 24,5 $\pm$ 0,4 & 270,3 $\pm$ 9,5 & 161,3 $\pm$ 8,4 & 0,3000 $\pm$ 0,0106 \\
+\texttt{cuda} & 46,8 $\pm$ 1,4 & 219,5 $\pm$ 5,9 & 55,9 $\pm$ 0,7 & 275,5 $\pm$ 6,0 & 139,6 $\pm$ 6,3 & 0,3057 $\pm$ 0,0066 \\
+\hline
+\end{tabular}
+
+% Comparacoes: teste t de Welch, p corrigido por Holm dentro de cada metrica
+\begin{tabular}{llrrr}
+\hline
+\textbf{M\'etrica} & \textbf{A $\times$ B} & \textbf{A$-$B [IC95\%]} & \textbf{Dif. (\%)} & \textbf{$p$ (Holm)} \\
+\hline
+tempo\_total & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 12+2} & -0,364 [-0,517; -0,211] & -10,3 & $<$0,001 \\
+tempo\_total & \texttt{omp 1} $\times$ \texttt{omp 2} & 4,365 [4,306; 4,424] & 56,9 & $<$0,001 \\
+tempo\_total & \texttt{omp 2} $\times$ \texttt{omp 4} & 1,418 [1,256; 1,580] & 22,7 & $<$0,001 \\
+tempo\_total & \texttt{omp 4} $\times$ \texttt{omp 6} & -0,047 [-0,260; 0,165] & -0,8 & 0,768 \\
+tempo\_total & \texttt{omp 6} $\times$ \texttt{omp 8} & -0,541 [-0,733; -0,348] & -7,9 & $<$0,001 \\
+tempo\_total & \texttt{omp 8} $\times$ \texttt{omp 10} & -0,375 [-0,510; -0,240] & -5,2 & $<$0,001 \\
+tempo\_total & \texttt{omp 10} $\times$ \texttt{omp 12} & 1,383 [1,094; 1,673] & 23,7 & $<$0,001 \\
+tempo\_total & \texttt{omp 12} $\times$ \texttt{omp 14} & 0,255 [-0,111; 0,621] & 4,6 & 0,479 \\
+tempo\_total & \texttt{omp 14} $\times$ \texttt{omp 16} & -1,876 [-2,261; -1,492] & -25,2 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 1+2} $\times$ \texttt{pipeline 2+2} & 3,948 [3,876; 4,020] & 75,4 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 2+2} $\times$ \texttt{pipeline 4+2} & 1,205 [1,140; 1,271] & 29,9 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 4+2} $\times$ \texttt{pipeline 6+2} & 0,179 [0,136; 0,223] & 4,7 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 6+2} $\times$ \texttt{pipeline 8+2} & 0,111 [0,054; 0,168] & 3,0 & 0,004 \\
+tempo\_total & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 10+2} & 0,571 [0,434; 0,709] & 18,0 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 12+2} $\times$ \texttt{pipeline 14+2} & -2,236 [-2,447; -2,026] & -38,8 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 14+2} $\times$ \texttt{pipeline 16+2} & 2,004 [1,803; 2,205] & 53,3 & $<$0,001 \\
+tempo\_total & \texttt{omp 14} $\times$ \texttt{pipeline 10+2} & 2,412 [2,123; 2,702] & 76,2 & $<$0,001 \\
+tempo\_total & \texttt{omp 14} $\times$ \texttt{cuda} & 0,890 [0,616; 1,165] & 19,0 & $<$0,001 \\
+tempo\_total & \texttt{pipeline 10+2} $\times$ \texttt{cuda} & -1,522 [-1,657; -1,387] & -32,5 & $<$0,001 \\
+tempo\_total & \texttt{omp 8} $\times$ \texttt{omp 16} & -0,613 [-0,938; -0,288] & -8,2 & 0,006 \\
+tempo\_total & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 16+2} & -0,025 [-0,084; 0,034] & -0,7 & 0,768 \\
+cifra & \texttt{pipeline 16+2} $\times$ \texttt{cuda} & -0,172 [-0,207; -0,137] & -11,4 & $<$0,001 \\
+cifra & \texttt{omp 1} $\times$ \texttt{omp 2} & 4,108 [4,081; 4,135] & 88,4 & $<$0,001 \\
+cifra & \texttt{omp 2} $\times$ \texttt{omp 4} & 1,512 [1,420; 1,603] & 48,2 & $<$0,001 \\
+cifra & \texttt{omp 4} $\times$ \texttt{omp 6} & 0,395 [0,303; 0,486] & 14,4 & $<$0,001 \\
+cifra & \texttt{omp 6} $\times$ \texttt{omp 8} & 0,548 [0,527; 0,570] & 25,0 & $<$0,001 \\
+cifra & \texttt{omp 8} $\times$ \texttt{omp 10} & 0,316 [0,300; 0,331] & 16,8 & $<$0,001 \\
+cifra & \texttt{omp 10} $\times$ \texttt{omp 12} & 0,145 [0,108; 0,181] & 8,3 & $<$0,001 \\
+cifra & \texttt{omp 12} $\times$ \texttt{omp 14} & -0,320 [-0,419; -0,221] & -15,6 & $<$0,001 \\
+cifra & \texttt{omp 14} $\times$ \texttt{omp 16} & -1,999 [-2,313; -1,685] & -49,3 & $<$0,001 \\
+cifra & \texttt{pipeline 1+2} $\times$ \texttt{pipeline 2+2} & 3,944 [3,871; 4,017] & 76,6 & $<$0,001 \\
+cifra & \texttt{pipeline 2+2} $\times$ \texttt{pipeline 4+2} & 1,529 [1,456; 1,602] & 42,2 & $<$0,001 \\
+cifra & \texttt{pipeline 4+2} $\times$ \texttt{pipeline 6+2} & 0,806 [0,756; 0,856] & 28,6 & $<$0,001 \\
+cifra & \texttt{pipeline 6+2} $\times$ \texttt{pipeline 8+2} & 0,515 [0,489; 0,541] & 22,4 & $<$0,001 \\
+cifra & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 10+2} & 0,213 [0,174; 0,251] & 10,2 & $<$0,001 \\
+cifra & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 12+2} & -0,192 [-0,258; -0,127] & -8,4 & $<$0,001 \\
+cifra & \texttt{pipeline 12+2} $\times$ \texttt{pipeline 14+2} & -0,684 [-0,779; -0,589] & -23,1 & $<$0,001 \\
+cifra & \texttt{pipeline 14+2} $\times$ \texttt{pipeline 16+2} & 1,625 [1,541; 1,709] & 121,5 & $<$0,001 \\
+cifra & \texttt{omp 12} $\times$ \texttt{pipeline 16+2} & 0,396 [0,357; 0,435] & 29,6 & $<$0,001 \\
+cifra & \texttt{omp 12} $\times$ \texttt{cuda} & 0,224 [0,181; 0,268] & 14,9 & $<$0,001 \\
+cifra & \texttt{omp 8} $\times$ \texttt{omp 16} & -1,859 [-2,167; -1,552] & -45,9 & $<$0,001 \\
+cifra & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 16+2} & 0,961 [0,932; 0,990] & 71,9 & $<$0,001 \\
+energia\_cpu\_j & \texttt{cuda} $\times$ \texttt{pipeline 10+2} & -10,112 [-18,910; -1,314] & -4,4 & 0,137 \\
+energia\_cpu\_j & \texttt{omp 1} $\times$ \texttt{omp 2} & 88,600 [79,810; 97,391] & 26,0 & $<$0,001 \\
+energia\_cpu\_j & \texttt{omp 2} $\times$ \texttt{omp 4} & -1,451 [-19,829; 16,927] & -0,4 & 0,867 \\
+energia\_cpu\_j & \texttt{omp 4} $\times$ \texttt{omp 6} & -25,169 [-46,030; -4,307] & -6,8 & 0,125 \\
+energia\_cpu\_j & \texttt{omp 6} $\times$ \texttt{omp 8} & -31,506 [-46,259; -16,752] & -7,9 & 0,005 \\
+energia\_cpu\_j & \texttt{omp 8} $\times$ \texttt{omp 10} & -33,397 [-41,738; -25,056] & -7,7 & $<$0,001 \\
+energia\_cpu\_j & \texttt{omp 10} $\times$ \texttt{omp 12} & 71,510 [54,925; 88,094] & 19,8 & $<$0,001 \\
+energia\_cpu\_j & \texttt{omp 12} $\times$ \texttt{omp 14} & 13,166 [-6,869; 33,201] & 3,8 & 0,734 \\
+energia\_cpu\_j & \texttt{omp 14} $\times$ \texttt{omp 16} & -89,267 [-111,884; -66,650] & -20,4 & $<$0,001 \\
+energia\_cpu\_j & \texttt{pipeline 1+2} $\times$ \texttt{pipeline 2+2} & 117,807 [108,731; 126,884] & 38,8 & $<$0,001 \\
+energia\_cpu\_j & \texttt{pipeline 2+2} $\times$ \texttt{pipeline 4+2} & 28,476 [17,507; 39,444] & 10,3 & $<$0,001 \\
+energia\_cpu\_j & \texttt{pipeline 4+2} $\times$ \texttt{pipeline 6+2} & 5,825 [-5,079; 16,729] & 2,2 & 0,754 \\
+energia\_cpu\_j & \texttt{pipeline 6+2} $\times$ \texttt{pipeline 8+2} & 4,802 [-3,763; 13,367] & 1,8 & 0,754 \\
+energia\_cpu\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 10+2} & 35,144 [26,065; 44,223] & 15,3 & $<$0,001 \\
+energia\_cpu\_j & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 12+2} & -12,586 [-22,453; -2,718] & -5,2 & 0,109 \\
+energia\_cpu\_j & \texttt{pipeline 12+2} $\times$ \texttt{pipeline 14+2} & -113,855 [-123,412; -104,297] & -32,0 & $<$0,001 \\
+energia\_cpu\_j & \texttt{pipeline 14+2} $\times$ \texttt{pipeline 16+2} & 110,339 [100,763; 119,914] & 44,9 & $<$0,001 \\
+energia\_cpu\_j & \texttt{omp 2} $\times$ \texttt{pipeline 10+2} & 111,564 [100,817; 122,311] & 48,6 & $<$0,001 \\
+energia\_cpu\_j & \texttt{omp 2} $\times$ \texttt{cuda} & 121,676 [112,921; 130,431] & 55,4 & $<$0,001 \\
+energia\_cpu\_j & \texttt{omp 8} $\times$ \texttt{omp 16} & -37,989 [-57,809; -18,168] & -8,7 & 0,012 \\
+energia\_cpu\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 16+2} & 19,042 [11,221; 26,863] & 7,7 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 12+2} & -14,524 [-25,123; -3,925] & -5,5 & 0,062 \\
+energia\_total\_j & \texttt{omp 1} $\times$ \texttt{omp 2} & 117,826 [108,988; 126,664] & 30,2 & $<$0,001 \\
+energia\_total\_j & \texttt{omp 2} $\times$ \texttt{omp 4} & 8,089 [-11,160; 27,337] & 2,1 & 0,684 \\
+energia\_total\_j & \texttt{omp 4} $\times$ \texttt{omp 6} & -25,080 [-47,081; -3,079] & -6,2 & 0,139 \\
+energia\_total\_j & \texttt{omp 6} $\times$ \texttt{omp 8} & -35,100 [-50,745; -19,455] & -7,9 & 0,003 \\
+energia\_total\_j & \texttt{omp 8} $\times$ \texttt{omp 10} & -36,289 [-45,128; -27,451] & -7,6 & $<$0,001 \\
+energia\_total\_j & \texttt{omp 10} $\times$ \texttt{omp 12} & 80,583 [62,510; 98,656] & 20,2 & $<$0,001 \\
+energia\_total\_j & \texttt{omp 12} $\times$ \texttt{omp 14} & 15,017 [-7,152; 37,186] & 3,9 & 0,684 \\
+energia\_total\_j & \texttt{omp 14} $\times$ \texttt{omp 16} & -100,734 [-125,666; -75,802] & -20,8 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 1+2} $\times$ \texttt{pipeline 2+2} & 144,060 [134,332; 153,789] & 42,7 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 2+2} $\times$ \texttt{pipeline 4+2} & 35,757 [24,558; 46,956] & 11,9 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 4+2} $\times$ \texttt{pipeline 6+2} & 6,478 [-4,643; 17,599] & 2,2 & 0,684 \\
+energia\_total\_j & \texttt{pipeline 6+2} $\times$ \texttt{pipeline 8+2} & 5,680 [-3,203; 14,563] & 2,0 & 0,684 \\
+energia\_total\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 10+2} & 38,622 [28,814; 48,430] & 15,4 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 12+2} $\times$ \texttt{pipeline 14+2} & -127,926 [-138,538; -117,314] & -32,6 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 14+2} $\times$ \texttt{pipeline 16+2} & 122,696 [112,184; 133,208] & 45,4 & $<$0,001 \\
+energia\_total\_j & \texttt{omp 4} $\times$ \texttt{pipeline 10+2} & 132,156 [112,699; 151,614] & 52,8 & $<$0,001 \\
+energia\_total\_j & \texttt{omp 4} $\times$ \texttt{cuda} & 107,210 [88,675; 125,746] & 38,9 & $<$0,001 \\
+energia\_total\_j & \texttt{pipeline 10+2} $\times$ \texttt{cuda} & -24,946 [-34,415; -15,477] & -9,1 & $<$0,001 \\
+energia\_total\_j & \texttt{omp 8} $\times$ \texttt{omp 16} & -41,423 [-63,070; -19,777] & -8,6 & 0,011 \\
+energia\_total\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 16+2} & 18,868 [10,806; 26,931] & 7,0 & 0,001 \\
+energia\_total\_liq\_j & \texttt{cuda} $\times$ \texttt{seq} & -14,340 [-19,640; -9,040] & -9,3 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{omp 1} $\times$ \texttt{omp 2} & -8,664 [-17,267; -0,060] & -5,1 & 0,340 \\
+energia\_total\_liq\_j & \texttt{omp 2} $\times$ \texttt{omp 4} & -32,994 [-48,104; -17,884] & -16,4 & 0,004 \\
+energia\_total\_liq\_j & \texttt{omp 4} $\times$ \texttt{omp 6} & -23,709 [-39,988; -7,430] & -10,5 & 0,056 \\
+energia\_total\_liq\_j & \texttt{omp 6} $\times$ \texttt{omp 8} & -19,432 [-30,317; -8,548] & -7,9 & 0,019 \\
+energia\_total\_liq\_j & \texttt{omp 8} $\times$ \texttt{omp 10} & -25,423 [-31,965; -18,881] & -9,4 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{omp 10} $\times$ \texttt{omp 12} & 40,496 [29,131; 51,861] & 17,6 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{omp 12} $\times$ \texttt{omp 14} & 7,617 [-5,478; 20,711] & 3,4 & 1,000 \\
+energia\_total\_liq\_j & \texttt{omp 14} $\times$ \texttt{omp 16} & -46,346 [-60,855; -31,838] & -17,3 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{pipeline 1+2} $\times$ \texttt{pipeline 2+2} & 29,651 [20,996; 38,307] & 16,0 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{pipeline 2+2} $\times$ \texttt{pipeline 4+2} & 0,825 [-9,123; 10,772] & 0,4 & 1,000 \\
+energia\_total\_liq\_j & \texttt{pipeline 4+2} $\times$ \texttt{pipeline 6+2} & 1,279 [-9,022; 11,581] & 0,7 & 1,000 \\
+energia\_total\_liq\_j & \texttt{pipeline 6+2} $\times$ \texttt{pipeline 8+2} & 2,461 [-5,895; 10,817] & 1,4 & 1,000 \\
+energia\_total\_liq\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 10+2} & 22,079 [15,113; 29,045] & 13,9 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 12+2} & -3,979 [-11,556; 3,598] & -2,4 & 1,000 \\
+energia\_total\_liq\_j & \texttt{pipeline 12+2} $\times$ \texttt{pipeline 14+2} & -63,123 [-70,128; -56,118] & -27,9 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{pipeline 14+2} $\times$ \texttt{pipeline 16+2} & 64,622 [57,402; 71,841] & 40,1 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{omp 1} $\times$ \texttt{pipeline 10+2} & 1,022 [-6,107; 8,151] & 0,6 & 1,000 \\
+energia\_total\_liq\_j & \texttt{omp 1} $\times$ \texttt{cuda} & 20,177 [13,934; 26,420] & 14,5 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{pipeline 10+2} $\times$ \texttt{cuda} & 19,156 [12,291; 26,020] & 13,7 & $<$0,001 \\
+energia\_total\_liq\_j & \texttt{omp 8} $\times$ \texttt{omp 16} & -23,657 [-36,539; -10,776] & -8,8 & 0,019 \\
+energia\_total\_liq\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 16+2} & 19,599 [12,489; 26,708] & 12,2 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{cuda} $\times$ \texttt{seq} & -39,875 [-45,111; -34,639] & -25,8 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{omp 1} $\times$ \texttt{omp 2} & -9,293 [-17,923; -0,663] & -5,5 & 0,257 \\
+energia\_cpu\_liq\_j & \texttt{omp 2} $\times$ \texttt{omp 4} & -33,246 [-48,418; -18,075] & -16,4 & 0,004 \\
+energia\_cpu\_liq\_j & \texttt{omp 4} $\times$ \texttt{omp 6} & -24,108 [-40,542; -7,675] & -10,6 & 0,053 \\
+energia\_cpu\_liq\_j & \texttt{omp 6} $\times$ \texttt{omp 8} & -19,380 [-30,518; -8,242] & -7,9 & 0,023 \\
+energia\_cpu\_liq\_j & \texttt{omp 8} $\times$ \texttt{omp 10} & -24,987 [-31,692; -18,282] & -9,2 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{omp 10} $\times$ \texttt{omp 12} & 40,485 [28,930; 52,041] & 17,6 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{omp 12} $\times$ \texttt{omp 14} & 7,438 [-5,745; 20,621] & 3,3 & 1,000 \\
+energia\_cpu\_liq\_j & \texttt{omp 14} $\times$ \texttt{omp 16} & -47,175 [-61,794; -32,557] & -17,5 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 1+2} $\times$ \texttt{pipeline 2+2} & 29,264 [21,026; 37,502] & 15,7 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 2+2} $\times$ \texttt{pipeline 4+2} & 1,441 [-8,567; 11,449] & 0,8 & 1,000 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 4+2} $\times$ \texttt{pipeline 6+2} & 1,802 [-8,466; 12,069] & 1,0 & 1,000 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 6+2} $\times$ \texttt{pipeline 8+2} & 2,310 [-5,862; 10,483] & 1,3 & 1,000 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 10+2} & 22,341 [15,442; 29,239] & 14,1 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 10+2} $\times$ \texttt{pipeline 12+2} & -4,425 [-12,050; 3,201] & -2,7 & 1,000 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 12+2} $\times$ \texttt{pipeline 14+2} & -63,702 [-70,695; -56,710] & -28,1 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 14+2} $\times$ \texttt{pipeline 16+2} & 65,393 [58,200; 72,586] & 40,5 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{omp 1} $\times$ \texttt{pipeline 10+2} & 1,228 [-5,891; 8,347] & 0,8 & 1,000 \\
+energia\_cpu\_liq\_j & \texttt{omp 1} $\times$ \texttt{cuda} & 45,471 [39,274; 51,668] & 39,8 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 10+2} $\times$ \texttt{cuda} & 44,243 [37,415; 51,071] & 38,7 & $<$0,001 \\
+energia\_cpu\_liq\_j & \texttt{omp 8} $\times$ \texttt{omp 16} & -24,239 [-37,335; -11,144] & -9,0 & 0,018 \\
+energia\_cpu\_liq\_j & \texttt{pipeline 8+2} $\times$ \texttt{pipeline 16+2} & 19,607 [12,515; 26,699] & 12,2 & $<$0,001 \\
+\hline
+\end{tabular}

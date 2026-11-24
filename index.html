@@ -850,13 +850,18 @@
         <div class="video-controls">
           <label class="image-field" for="video-mode">Modo
             <select id="video-mode">
-              <option value="seq">seq: sequencial</option>
-              <option value="omp">omp: parallel for</option>
-              <option value="pipeline" selected>pipeline: E/S sobreposta</option>
-              <option value="cuda" disabled>cuda: NVIDIA GPU indisponível</option>
-            </select>
+			  <option value="seq">seq: sequencial</option>
+			  <option value="omp">omp: parallel for</option>
+			  <option value="pipeline" selected>pipeline: E/S sobreposta</option>
+			  <option value="mpi" disabled>mpi: processos distribuídos</option>
+			  <option value="cuda" disabled>cuda: NVIDIA GPU indisponível</option>
+			</select>
           </label>
-          <label class="image-field" for="video-threads">Threads de cifra <output id="video-threads-value">3</output><input id="video-threads" type="range" min="1" max="8" value="3"></label>
+          <label class="image-field" for="video-threads">
+			  <span id="video-parallel-label">Threads de cifra</span>
+			  <output id="video-threads-value">3</output>
+			  <input id="video-threads" type="range" min="1" max="8" value="3">
+		  </label>
           <label class="image-field" for="video-memory">Limite da VRAM livre <output id="video-memory-value">60%</output><input id="video-memory" type="range" min="10" max="80" step="10" value="60" disabled></label>
           <label class="image-field" for="video-seed">Semente<input id="video-seed" type="text" inputmode="numeric" value="123"></label>
           <label class="image-field" for="video-start">Início (s)<input id="video-start" type="number" min="0" value="20"></label>

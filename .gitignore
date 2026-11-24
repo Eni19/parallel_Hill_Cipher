@@ -20,6 +20,8 @@ Thumbs.db
 image_hill
 video_hill
 *.mkv
+hello_mpi
+video_hill_mpi
 
 # Laboratorio de video (gerado por server.py)
 video_lab/

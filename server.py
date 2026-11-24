@@ -29,7 +29,7 @@ SOURCE = os.path.join(ROOT, "video.mp4")
 BENCH_FILE = os.path.join(LAB, "benchmarks.json")
 PORT = 8085
 MODES = ("seq", "omp", "pipeline")
-DEMO_MODES = MODES + ("cuda",)
+DEMO_MODES = MODES + ("cuda", "mpi")
 CUDA_SOURCE = os.path.join(ROOT, "HillCypherCode", "image_hill_cuda.cu")
 CUDA_BINARY = os.path.join(LAB, "image_hill_cuda.exe" if os.name == "nt" else "image_hill_cuda")
 CUDA_LOCK = threading.Lock()
@@ -55,6 +55,14 @@ def find_binary():
                 return path
     return None
 
+def find_mpi_binary():
+    names = ["video_hill_mpi.exe", "video_hill_mpi"] if os.name == "nt" else ["video_hill_mpi"]
+    for folder in (ROOT, os.path.join(ROOT, "HillCypherCode")):
+        for name in names:
+            path = os.path.join(folder, name)
+            if os.path.isfile(path):
+                return path
+    return None
 
 def find_nvcc():
     exe_name = "nvcc.exe" if os.name == "nt" else "nvcc"
@@ -413,47 +421,119 @@ def run_cuda_video(src, dst, seed, memory_percent, codec, discard=False):
         stats["sha256"] = digest.group(1)
     return stats
 
+def run_mpi_video(launcher, binary, processes, seed, source, destination, codec, step):
+    command = [
+        launcher, "-np", str(processes), binary,
+        str(seed), source, destination, "yuv420p", codec
+    ]
+
+    return parse_stats(JOB.run(command, step))
 
 def run_demo(p):
-    if p["mode"] == "cuda":
+    mode = p["mode"]
+
+    if mode == "cuda":
         require_video_media()
         require_cuda_binary()
         binary = None
+    elif mode == "mpi":
+        launcher, binary = require_mpi_tools()
     else:
         binary = require_tools()
+
     cut_clip(p["start"], p["seconds"], "trecho.mp4")
     info = probe(os.path.join(LAB, "trecho.mp4"))
+
     JOB.update(total=6)
-    if p["mode"] == "cuda":
+
+    # Cifragem
+    if mode == "cuda":
         JOB.update(step="Decodificando e cifrando quadros na GPU")
-        enc = run_cuda_video("trecho.mp4", "cifrado.mkv", p["seed"], p["memory_percent"], "raw")
+        enc = run_cuda_video(
+            "trecho.mp4", "cifrado.mkv",
+            p["seed"], p["memory_percent"], "raw"
+        )
+
+    elif mode == "mpi":
+        enc = run_mpi_video(
+            launcher, binary, p["processes"], p["seed"],
+            "trecho.mp4", "cifrado.mkv", "raw",
+            "Cifrando o trecho com MPI"
+        )
+
     else:
         common = [str(p["threads"]), str(p["seed"])]
-        enc = parse_stats(JOB.run([binary, p["mode"], *common, "trecho.mp4", "cifrado.mkv"], "Cifrando o trecho"))
+        enc = parse_stats(JOB.run(
+            [binary, mode, *common, "trecho.mp4", "cifrado.mkv"],
+            "Cifrando o trecho"
+        ))
+
     JOB.update(done=1)
-    if p["mode"] == "cuda":
+
+    # Decifragem
+    if mode == "cuda":
         JOB.update(step="Decodificando e decifrando quadros na GPU")
-        dec = run_cuda_video("cifrado.mkv", "decifrado.mkv", p["seed"], p["memory_percent"], "ffv1")
+        dec = run_cuda_video(
+            "cifrado.mkv", "decifrado.mkv",
+            p["seed"], p["memory_percent"], "ffv1"
+        )
+
+    elif mode == "mpi":
+        dec = run_mpi_video(
+            launcher, binary, p["processes"], p["seed"],
+            "cifrado.mkv", "decifrado.mkv", "ffv1",
+            "Decifrando o vídeo com MPI"
+        )
+
     else:
-        dec = parse_stats(JOB.run([binary, p["mode"], *common, "cifrado.mkv", "decifrado.mkv", "yuv420p", "ffv1"],
-                                  "Decifrando o video cifrado"))
+        dec = parse_stats(JOB.run(
+            [binary, mode, *common, "cifrado.mkv",
+             "decifrado.mkv", "yuv420p", "ffv1"],
+            "Decifrando o video cifrado"
+        ))
+
     JOB.update(done=2, step="Comparando quadros (SHA-256)")
-    h_orig, h_dec = frames_hash("trecho.mp4"), frames_hash("decifrado.mkv")
+
+    h_orig = frames_hash("trecho.mp4")
+    h_dec = frames_hash("decifrado.mkv")
+
     JOB.update(done=3, step="Analisando um quadro")
+
     frames = enc.get("quadros", 1)
     analysis = analyse_frame(frames // 2, info["width"], info["height"])
+
     JOB.update(done=4, step="Gerando previas para o navegador")
-    for src, dst, noise in (("trecho.mp4", "prev_original.mp4", False), ("cifrado.mkv", "prev_cifrado.mp4", True),
-                            ("decifrado.mkv", "prev_decifrado.mp4", False)):
+
+    for src, dst, noise in (
+        ("trecho.mp4", "prev_original.mp4", False),
+        ("cifrado.mkv", "prev_cifrado.mp4", True),
+        ("decifrado.mkv", "prev_decifrado.mp4", False)
+    ):
         preview(src, dst, noise)
+
     JOB.update(done=6)
-    sizes = {name: os.path.getsize(os.path.join(LAB, name))
-             for name in ("trecho.mp4", "cifrado.mkv", "decifrado.mkv")}
-    result = {"params": p, "info": info, "encrypt": enc, "decrypt": dec, "sizes": sizes,
-              "hash_original": h_orig, "hash_decifrado": h_dec, "identical": h_orig == h_dec,
-              "analysis": analysis, "version": int(time.time())}
+
+    sizes = {
+        name: os.path.getsize(os.path.join(LAB, name))
+        for name in ("trecho.mp4", "cifrado.mkv", "decifrado.mkv")
+    }
+
+    result = {
+        "params": p,
+        "info": info,
+        "encrypt": enc,
+        "decrypt": dec,
+        "sizes": sizes,
+        "hash_original": h_orig,
+        "hash_decifrado": h_dec,
+        "identical": h_orig == h_dec,
+        "analysis": analysis,
+        "version": int(time.time())
+    }
+
     with open(os.path.join(LAB, "demo.json"), "w", encoding="utf-8") as f:
         json.dump(result, f)
+
     return result
 
 
@@ -549,6 +629,20 @@ def require_tools():
         raise RuntimeError("Compile HillCypherCode/video_hill.c como video_hill na pasta do projeto (veja o README).")
     return binary
 
+def require_mpi_tools():
+    require_video_media()
+
+    launcher = shutil.which("mpirun")
+    if not launcher:
+        raise RuntimeError("mpirun não encontrado. Instale o MPICH ou Open MPI.")
+
+    binary = find_mpi_binary()
+    if not binary:
+        raise RuntimeError(
+            "video_hill_mpi não encontrado. Compile HillCypherCode/video_hill_mpi.c com mpicc."
+        )
+
+    return launcher, binary
 
 def number(body, key, low, high, default, kind=int):
     try:
@@ -622,9 +716,19 @@ class Handler(SimpleHTTPRequestHandler):
                     demo = json.load(f)
             except (OSError, ValueError):
                 pass
-            return self.send_json({"ffmpeg": bool(FFMPEG_DIR), "binary": bool(find_binary()),
-                                   "source": os.path.isfile(SOURCE), "info": info, "cores": os.cpu_count(),
-                                   "cpu": cpu_name(), "demo": demo, "job": JOB.snapshot()})
+            return self.send_json({
+                            "ffmpeg": bool(FFMPEG_DIR),
+                            "binary": bool(find_binary()),
+                            "source": os.path.isfile(SOURCE),
+                            "info": info,
+                            "cores": os.cpu_count(),
+                            "cpu": cpu_name(),
+                            "demo": demo,
+                            "job": JOB.snapshot(),
+                            "mpi": bool(find_mpi_binary() and shutil.which("mpirun")),
+                            "mpi_binary": bool(find_mpi_binary()),
+                            "mpi_launcher": bool(shutil.which("mpirun"))})
+
         if path == "/api/job":
             return self.send_json(JOB.snapshot())
         if path == "/api/bench":
@@ -710,8 +814,13 @@ class Handler(SimpleHTTPRequestHandler):
                                                  ("X-GPU-Free-Bytes", free_bytes),
                                                  ("X-GPU-Batch-Bytes", batch_bytes)))
             mode = body.get("mode") if path == "/api/demo" else None
+            if path == "/api/demo" and mode not in DEMO_MODES:
+                raise ValueError("Modo inválido")
+
             if path == "/api/demo" and mode == "cuda":
                 require_video_media()
+            elif path == "/api/demo" and mode == "mpi":
+                require_mpi_tools()
             else:
                 require_tools()
             info = probe(SOURCE)
@@ -719,8 +828,11 @@ class Handler(SimpleHTTPRequestHandler):
                 if mode not in DEMO_MODES:
                     raise ValueError("Modo invalido")
                 seconds, start = clip_params(body, info)
-                params = {"mode": mode, "threads": 1 if mode in ("seq", "cuda") else number(body, "threads", 1, 64, 2),
-                          "seed": number(body, "seed", 0, 2 ** 64 - 1, 123), "seconds": seconds, "start": start}
+                params = {"mode": mode, "seed": number(body, "seed", 0, 2 ** 64 - 1, 123), "seconds": seconds, "start": start}
+                if mode == "mpi":
+                    params["processes"] = number(body, "processes", 1, 64, 2)
+                else:
+                    params["threads"] = 1 if mode in ("seq", "cuda") else number(body, "threads", 1, 64, 2)
                 if mode == "cuda":
                     params["memory_percent"] = number(body, "memoryPercent", 10, 80, 60)
                 started = JOB.start("demo", run_demo, params)

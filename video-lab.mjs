@@ -334,6 +334,7 @@ function renderDemo(d) {
     return `<tr><th scope="row">${label}</th><td>${value(e)}</td><td>${value(x)}</td></tr>`;
   };
   const modeLabel = stats => stats.modo === 'cuda' ? `CUDA · ${stats.gpu}`
+    : stats.modo === 'mpi' ? `MPI · ${stats.processos} processo(s)`
     : `${stats.modo} · ${stats.threads}${stats.modo === 'pipeline' ? '+2' : ''} thread(s)`;
   $('video-stats').querySelector('tbody').innerHTML = [
     `<tr><th scope="row">Configuração</th><td>${modeLabel(e)}</td><td>${modeLabel(x)}</td></tr>`,
@@ -436,14 +437,29 @@ async function init() {
   renderTimelines();
   setupSync();
   const threadHint = () => {
-    const mode = $('video-mode').value, n = Number($('video-threads').value);
+    const mode = $('video-mode').value;
+    const n = Number($('video-threads').value);
+
     $('video-threads').disabled = mode === 'seq' || mode === 'cuda';
     $('video-memory').disabled = mode !== 'cuda' || state.polling;
-    $('video-threads-value').textContent = mode === 'cuda' ? 'GPU' : mode === 'pipeline' ? `${n} + 2` : mode === 'seq' ? '1' : n;
-    $('video-threads-hint').textContent = mode === 'cuda'
-      ? `Cada thread CUDA transforma um bloco de quatro bytes. Os quadros são processados em lotes limitados a ${$('video-memory').value}% da VRAM livre; o índice dos blocos continua global entre quadros.`
-      : mode === 'seq' ? 'O modo seq usa sempre 1 thread: ela lê, cifra e grava.'
-      : mode === 'pipeline' ? `pipeline ${n}+2 = ${n + 2} threads: ${n} só cifram, 1 só lê e 1 só grava, todas ao mesmo tempo.`
+
+    $('video-parallel-label').textContent =
+        mode === 'mpi' ? 'Processos MPI' : 'Threads de cifra';
+
+    $('video-threads-value').textContent =
+        mode === 'cuda' ? 'GPU' :
+        mode === 'pipeline' ? `${n} + 2` :
+        mode === 'seq' ? '1' : n;
+
+    $('video-threads-hint').textContent =
+        mode === 'cuda'
+            ? `Cada thread CUDA transforma um bloco de quatro bytes. Os quadros são processados em lotes limitados a ${$('video-memory').value}% da VRAM livre; o índice dos blocos continua global entre quadros.`
+        : mode === 'mpi'
+            ? `MPI ${n}: ${n} processos distribuem os blocos de cada quadro. O processo 0 também coordena a leitura e a gravação do vídeo.`
+        : mode === 'seq'
+            ? 'O modo seq usa sempre 1 thread: ela lê, cifra e grava.'
+        : mode === 'pipeline'
+            ? `pipeline ${n}+2 = ${n + 2} threads: ${n} só cifram, 1 só lê e 1 só grava, todas ao mesmo tempo.`
         : `omp ${n} = ${n} threads: elas dividem a cifra de cada quadro; a thread principal também lê e grava, enquanto as outras esperam.`;
   };
   $('video-threads').addEventListener('input', threadHint);
@@ -453,11 +469,25 @@ async function init() {
     threadHint();
   });
   threadHint();
-  $('video-run').addEventListener('click', () => start('/api/demo', {
-    mode: $('video-mode').value, threads: Number($('video-threads').value), seed: $('video-seed').value.trim(),
-    start: Number($('video-start').value), seconds: Number($('video-seconds').value),
-    memoryPercent: Number($('video-memory').value)
-  }));
+  $('video-run').addEventListener('click', () => {
+    const mode = $('video-mode').value;
+
+    const params = {
+        mode,
+        seed: $('video-seed').value.trim(),
+        start: Number($('video-start').value),
+        seconds: Number($('video-seconds').value),
+        memoryPercent: Number($('video-memory').value)
+    };
+
+    if (mode === 'mpi') {
+        params.processes = Number($('video-threads').value);
+    } else {
+        params.threads = Number($('video-threads').value);
+    }
+
+    start('/api/demo', params);
+  });
   $('video-cancel').addEventListener('click', () => api('/api/cancel', {}).catch(() => {}));
   $('bench-run').addEventListener('click', () => start('/api/bench', {
     modes: [...document.querySelectorAll('[name=bench-mode]:checked')].map(i => i.value),
@@ -486,6 +516,14 @@ async function init() {
   state.info = info;
   const cudaOption = $('video-mode').querySelector('option[value="cuda"]');
   const benchCuda = $('bench-cuda');
+  const mpiOption = $('video-mode').querySelector('option[value="mpi"]');
+
+  mpiOption.disabled = !info.mpi;
+
+  mpiOption.textContent = info.mpi
+    ? 'mpi: processos distribuídos'
+    : `mpi: indisponível (${!info.mpi_binary ? 'executável não compilado' : 'mpirun não encontrado'})`;
+
   try {
     const gpuInfo = await api('/api/gpu/info');
     cudaOption.disabled = false;

@@ -537,55 +537,157 @@ def run_demo(p):
     return result
 
 
+
 def run_bench(p):
     binary = require_tools()
+
+    launcher = mpi_binary = None
+    if "mpi" in p["modes"]:
+        launcher, mpi_binary = require_mpi_tools()
+
     if "cuda" in p["modes"]:
         require_cuda_binary()
+
     cut_clip(p["start"], p["seconds"], "bench_trecho.mp4")
-    configs = [("seq", 1)] + [(m, t) for m in p["modes"] if m not in ("seq", "cuda") for t in p["threads"]]
+
+    # Configurações sequenciais e OpenMP/pipeline.
+    configs = [("seq", 1)]
+    configs.extend(
+        (m, t)
+        for m in p["modes"]
+        if m in ("omp", "pipeline")
+        for t in p["threads"]
+    )
+
+    # Configurações MPI: o segundo elemento representa processos.
+    configs.extend(("mpi", n) for n in p["processes"])
+
     if "cuda" in p["modes"]:
         configs.append(("cuda", "GPU"))
-    cuda_warmup = int("cuda" in p["modes"])
-    total = len(configs) * p["reps"] + 1 + cuda_warmup
+
+    mpi_warmup = "mpi" in p["modes"]
+    cuda_warmup = "cuda" in p["modes"]
+
+    total = (
+        len(configs) * p["reps"]
+        + 1
+        + int(mpi_warmup)
+        + int(cuda_warmup)
+    )
+
     JOB.update(total=total)
+
     out = "-" if p["discard"] else "bench_saida.mkv"
-    batch = {"id": time.strftime("%Y%m%d-%H%M%S"), "date": time.strftime("%d/%m/%Y %H:%M"),
-             "seconds": p["seconds"], "start": p["start"], "reps": p["reps"], "discard": p["discard"],
-             "cpu": cpu_name(), "cores": os.cpu_count(), "cuda_memory_percent": p.get("memory_percent"),
-             "runs": []}
-    JOB.run([binary, "omp", "2", "1", "bench_trecho.mp4", out], "Aquecimento (descartado)")
+
+    batch = {
+        "id": time.strftime("%Y%m%d-%H%M%S"),
+        "date": time.strftime("%d/%m/%Y %H:%M"),
+        "seconds": p["seconds"],
+        "start": p["start"],
+        "reps": p["reps"],
+        "discard": p["discard"],
+        "cpu": cpu_name(),
+        "cores": os.cpu_count(),
+        "threads": p["threads"],
+        "processes": p["processes"],
+        "cuda_memory_percent": p.get("memory_percent"),
+        "runs": []
+    }
+
+    # Aquecimento CPU.
+    JOB.run(
+        [binary, "omp", "2", "1", "bench_trecho.mp4", out],
+        "Aquecimento CPU (descartado)"
+    )
     done = 1
+
+    # Aquecimento MPI, usando a primeira quantidade selecionada.
+    if mpi_warmup:
+        JOB.update(done=done, step="Aquecimento MPI (descartado)")
+
+        run_mpi_video(
+            launcher, mpi_binary, p["processes"][0], 123,
+            "bench_trecho.mp4", "-", "raw",
+            "Aquecimento MPI (descartado)"
+        )
+        done += 1
+
+    # Aquecimento CUDA.
     if cuda_warmup:
         JOB.update(done=done, step="Aquecimento CUDA (descartado)")
-        cuda_warm = run_cuda_video("bench_trecho.mp4", None, 123, p["memory_percent"], "discard", discard=True)
+
+        cuda_warm = run_cuda_video(
+            "bench_trecho.mp4", None, 123,
+            p["memory_percent"], "discard", discard=True
+        )
+
         batch["gpu"] = cuda_warm["gpu"]
         done += 1
+
+    # Execuções das configurações em ordem aleatória.
     for rep in range(1, p["reps"] + 1):
         order = configs[:]
-        random.shuffle(order)  # ordem embaralhada reduz o efeito de aquecimento e carga do sistema
-        for mode, threads in order:
-            label = f"{mode} na GPU" if mode == "cuda" else f"{mode} com {threads} thread(s)"
-            JOB.update(done=done, step=f"Repeticao {rep}/{p['reps']}: {label}")
+        random.shuffle(order)
+
+        for mode, amount in order:
+            if mode == "cuda":
+                label = "cuda na GPU"
+            elif mode == "mpi":
+                label = f"mpi com {amount} processo(s)"
+            else:
+                label = f"{mode} com {amount} thread(s)"
+
+            JOB.update(
+                done=done,
+                step=f"Repeticao {rep}/{p['reps']}: {label}"
+            )
+
             if mode == "cuda":
                 cuda_out = None if p["discard"] else "bench_cuda_saida.mkv"
-                stats = run_cuda_video("bench_trecho.mp4", cuda_out, 123, p["memory_percent"],
-                                       "discard" if p["discard"] else "raw", discard=p["discard"])
+
+                stats = run_cuda_video(
+                    "bench_trecho.mp4", cuda_out, 123,
+                    p["memory_percent"],
+                    "discard" if p["discard"] else "raw",
+                    discard=p["discard"]
+                )
+
+            elif mode == "mpi":
+                stats = run_mpi_video(
+                    launcher, mpi_binary, amount, 123,
+                    "bench_trecho.mp4", out, "raw",
+                    f"Executando MPI com {amount} processos"
+                )
+
             else:
-                stats = parse_stats(JOB.run([binary, mode, str(threads), "123", "bench_trecho.mp4", out]))
+                stats = parse_stats(
+                    JOB.run([
+                        binary, mode, str(amount), "123",
+                        "bench_trecho.mp4", out
+                    ])
+                )
+
             stats["rep"] = rep
             batch["runs"].append(stats)
             done += 1
+
     JOB.update(done=done)
+
+    # Remove arquivos intermediários quando a saída foi gravada em disco.
     if not p["discard"]:
         for name in (out, "bench_cuda_saida.mkv"):
             path = os.path.join(LAB, name)
             if os.path.exists(path):
                 os.remove(path)
+
     batches = load_benchmarks()
     batches.append(batch)
+
     with open(BENCH_FILE, "w", encoding="utf-8") as f:
         json.dump(batches, f, indent=1)
+
     return batch
+
 
 
 def load_benchmarks():
@@ -837,17 +939,50 @@ class Handler(SimpleHTTPRequestHandler):
                     params["memory_percent"] = number(body, "memoryPercent", 10, 80, 60)
                 started = JOB.start("demo", run_demo, params)
             elif path == "/api/bench":
-                modes = [m for m in body.get("modes", []) if m in MODES or m == "cuda"]
-                threads = sorted({int(t) for t in body.get("threads", []) if str(t).isdigit() and 1 <= int(t) <= 64})
-                if not threads and any(m not in ("seq", "cuda") for m in modes):
-                    raise ValueError("Escolha ao menos um numero de threads")
+                modes = [
+                    m for m in body.get("modes", [])
+                    if m in MODES or m in ("cuda", "mpi")
+                ]
+
+                threads = sorted({
+                    int(t) for t in body.get("threads", [])
+                    if str(t).isdigit() and 1 <= int(t) <= 64
+                })
+
+                processes = sorted({
+                    int(n) for n in body.get("processes", [])
+                    if str(n).isdigit() and 2 <= int(n) <= 64
+                })
+
+                # Valida as configurações OpenMP e pipeline.
+                if not threads and any(m in ("omp", "pipeline") for m in modes):
+                    raise ValueError("Escolha ao menos uma quantidade de threads")
+
+                # Valida as configurações MPI.
+                if "mpi" in modes and not processes:
+                    raise ValueError("Escolha ao menos uma quantidade de processos MPI")
+
                 if "cuda" in modes:
                     require_cuda_binary()
+
+                if "mpi" in modes:
+                    require_mpi_tools()
+
                 seconds, start = clip_params(body, info)
-                params = {"modes": modes, "threads": threads, "reps": number(body, "reps", 1, 20, 3),
-                          "seconds": seconds, "start": start, "discard": bool(body.get("discard", True))}
+
+                params = {
+                    "modes": modes,
+                    "threads": threads,
+                    "processes": processes,
+                    "reps": number(body, "reps", 1, 20, 3),
+                    "seconds": seconds,
+                    "start": start,
+                    "discard": bool(body.get("discard", True))
+                }
+
                 if "cuda" in modes:
                     params["memory_percent"] = number(body, "memoryPercent", 10, 80, 60)
+
                 started = JOB.start("bench", run_bench, params)
             else:
                 return self.send_json({"error": "Rota desconhecida"}, 404)

@@ -1,7 +1,7 @@
 // Laboratorio de video: conversa com server.py, que executa video_hill e o FFmpeg na maquina local.
 const $ = id => document.getElementById(id);
-const MODE_COLORS = { seq: '#3987e5', omp: '#d95926', pipeline: '#199e70', cuda: '#c98500' };
-const MODE_ORDER = { seq: 0, omp: 1, pipeline: 2, cuda: 3 };
+const MODE_COLORS = {seq: '#3987e5', omp: '#d95926', pipeline: '#199e70', mpi: '#8b5cf6', cuda: '#c98500'};
+const MODE_ORDER = {seq: 0, omp: 1, pipeline: 2, mpi: 3, cuda: 4};
 const STAGES = [
   { key: 'leitura', label: 'Leitura', color: '#c98500' },
   { key: 'cifra', label: 'Cifra', color: '#d55181' },
@@ -96,21 +96,44 @@ function median(values) {
 
 function aggregate(batch) {
   const groups = new Map();
+
   for (const r of batch.runs) {
-    const key = `${r.modo}|${r.threads}`;
+    // MPI registra processos; os outros modos registram threads.
+    const workers = r.modo === 'mpi' ? r.processos : r.threads;
+    const key = `${r.modo}|${workers}`;
+
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
   }
+
   return [...groups.entries()].map(([key, runs]) => {
-    const [mode, threads] = key.split('|');
+    const [mode, workerValue] = key.split('|');
+
     const stat = k => {
       const vals = runs.map(r => Number(r[k])).filter(Number.isFinite);
-      return vals.length ? { med: median(vals), min: Math.min(...vals), max: Math.max(...vals) } : null;
+
+      return vals.length
+        ? { med: median(vals), min: Math.min(...vals), max: Math.max(...vals) }
+        : null;
     };
-    return { mode, threads: threads === 'GPU' ? 'GPU' : Number(threads), n: runs.length, frames: runs[0].quadros,
-      tempo_total: stat('tempo_total'), cifra: stat('cifra'), leitura: stat('leitura'),
-      gravacao: stat('gravacao'), fps: stat('fps') };
-  }).sort((a, b) => MODE_ORDER[a.mode] - MODE_ORDER[b.mode] || a.threads - b.threads);
+
+    return {
+      mode,
+      workers: workerValue === 'GPU' ? 'GPU' : Number(workerValue),
+      workerUnit: mode === 'mpi' ? 'processos' : 'threads',
+      n: runs.length,
+      frames: runs[0].quadros,
+      tempo_total: stat('tempo_total'),
+      cifra: stat('cifra'),
+      leitura: stat('leitura'),
+      gravacao: stat('gravacao'),
+      fps: stat('fps')
+    };
+  }).sort((a, b) =>
+    MODE_ORDER[a.mode] - MODE_ORDER[b.mode] ||
+    (a.workers === 'GPU' ? Infinity : a.workers) -
+    (b.workers === 'GPU' ? Infinity : b.workers)
+  );
 }
 
 function lineChart(container, { series, refs = [], xs, xLabel, yLabel, ideal }) {
@@ -155,86 +178,341 @@ function lineChart(container, { series, refs = [], xs, xLabel, yLabel, ideal }) 
   f.svg.setAttribute('aria-label', `${yLabel} por ${xLabel}`);
 }
 
+
 function stageChart(container, rows) {
   const rowH = 30, height = 20 + rows.length * rowH + 34;
-  const f = frame(container, { width: 1000, height, left: 120, right: 24, top: 10, bottom: 34 });
-  const maxV = niceMax(Math.max(...rows.map(r => Math.max(r.leitura.med + r.cifra.med + r.gravacao.med, r.tempo_total.med))) * 1.05);
+  const f = frame(container, {
+    width: 1000, height, left: 150, right: 24, top: 10, bottom: 34
+  });
+
+  const maxV = niceMax(Math.max(
+    ...rows.map(r => Math.max(
+      r.leitura.med + r.cifra.med + r.gravacao.med,
+      r.tempo_total.med
+    ))
+  ) * 1.05);
+
   const xs = v => f.x0 + (v / maxV) * (f.x1 - f.x0);
   const g = el('g', { class: 'axis' }, f.svg);
+
   for (let i = 0; i <= 4; i++) {
     const v = (maxV / 4) * i;
-    el('line', { x1: xs(v), x2: xs(v), y1: f.y1, y2: f.y0, class: i ? 'grid' : 'baseline' }, g);
-    el('text', { x: xs(v), y: f.y0 + 16, 'text-anchor': 'middle' }, g).textContent = `${tickFmt(v)} s`;
+    el('line', {
+      x1: xs(v), x2: xs(v), y1: f.y1, y2: f.y0,
+      class: i ? 'grid' : 'baseline'
+    }, g);
+
+    el('text', {
+      x: xs(v), y: f.y0 + 16, 'text-anchor': 'middle'
+    }, g).textContent = `${tickFmt(v)} s`;
   }
+
   rows.forEach((r, i) => {
     const y = f.y1 + 8 + i * rowH;
-    el('text', { x: f.x0 - 10, y: y + 13, 'text-anchor': 'end', class: 'row-label' }, f.svg).textContent =
-      r.mode === 'cuda' ? 'cuda · GPU' : r.mode === 'seq' ? 'seq' : `${r.mode} ${r.threads}${r.mode === 'pipeline' ? '+2' : ''}`;
+
+    const rowLabel =
+      r.mode === 'cuda' ? 'cuda · GPU' :
+      r.mode === 'seq' ? 'seq' :
+      `${r.mode} ${r.workers}${r.mode === 'pipeline' ? '+2' : ''} ${r.workerUnit}`;
+
+    const tooltipLabel =
+      r.mode === 'cuda' ? 'CUDA · GPU' :
+      r.mode === 'seq' ? 'seq · 1 thread' :
+      `${r.mode} · ${r.workers} ${r.workerUnit}${r.mode === 'pipeline' ? ' + 2 threads de E/S' : ''}`;
+
+    el('text', {
+      x: f.x0 - 10, y: y + 13,
+      'text-anchor': 'end', class: 'row-label'
+    }, f.svg).textContent = rowLabel;
+
     let acc = 0;
+
     STAGES.forEach((s, k) => {
-      const v = r[s.key].med, x = xs(acc), w = Math.max(0, xs(acc + v) - x - (k < 2 ? 2 : 0));
-      const rect = el('rect', { x, y, width: w, height: 18, rx: k === 2 ? 4 : 0, fill: s.color }, f.svg);
-      rect.addEventListener('mousemove', e => showTip(e, `<b>${r.mode === 'cuda' ? 'CUDA · GPU' : `${r.mode} · ${r.threads} thread(s)`}</b><br>${s.label}: ${fmt(v)} s<br>Tempo total: ${fmt(r.tempo_total.med)} s`));
+      const v = r[s.key].med;
+      const x = xs(acc);
+      const w = Math.max(0, xs(acc + v) - x - (k < 2 ? 2 : 0));
+
+      const rect = el('rect', {
+        x, y, width: w, height: 18,
+        rx: k === 2 ? 4 : 0,
+        fill: s.color
+      }, f.svg);
+
+      rect.addEventListener('mousemove', e => showTip(
+        e,
+        `<b>${tooltipLabel}</b><br>${s.label}: ${fmt(v)} s<br>Tempo total: ${fmt(r.tempo_total.med)} s`
+      ));
+
       rect.addEventListener('mouseleave', hideTip);
       acc += v;
     });
-    el('line', { x1: xs(r.tempo_total.med), x2: xs(r.tempo_total.med), y1: y - 4, y2: y + 22, class: 'total-tick' }, f.svg);
+
+    el('line', {
+      x1: xs(r.tempo_total.med),
+      x2: xs(r.tempo_total.med),
+      y1: y - 4,
+      y2: y + 22,
+      class: 'total-tick'
+    }, f.svg);
   });
-  f.svg.setAttribute('aria-label', 'Tempo de leitura, cifra e gravação por configuração');
+
+  f.svg.setAttribute(
+    'aria-label',
+    'Tempo de leitura, cifra e gravação por configuração'
+  );
 }
+
 
 function renderBench() {
   const select = $('bench-batch');
   const batches = state.batches;
+
   if (!batches.length) {
     select.innerHTML = '<option>Nenhuma rodada ainda</option>';
-    ['chart-time', 'chart-speedup', 'chart-stages'].forEach(id => { $(id).innerHTML = '<p class="image-hint">Rode o benchmark para ver os gráficos.</p>'; });
+    ['chart-time', 'chart-speedup', 'chart-stages'].forEach(id => {
+      $(id).innerHTML = '<p class="image-hint">Rode o benchmark para ver os gráficos.</p>';
+    });
     $('bench-table').innerHTML = '';
     $('bench-meta').textContent = '';
     return;
   }
+
   const chosen = select.value;
-  select.innerHTML = batches.map((b, i) => `<option value="${i}">${b.date}${b.gpu ? ' · CUDA' : ''} · ${b.seconds} s · ${b.reps} rep.${b.discard ? ' · sem disco' : ' · com disco'}</option>`).reverse().join('');
-  select.value = chosen && batches[chosen] ? chosen : String(batches.length - 1);
+
+  select.innerHTML = batches.map((b, i) => {
+    const hasMPI = b.runs.some(r => r.modo === 'mpi');
+    const tags = [
+      b.gpu ? 'CUDA' : '',
+      hasMPI ? 'MPI' : ''
+    ].filter(Boolean).join(' · ');
+
+    return `<option value="${i}">${b.date}${tags ? ' · ' + tags : ''} · ${b.seconds} s · ${b.reps} rep.${b.discard ? ' · sem disco' : ' · com disco'}</option>`;
+  }).reverse().join('');
+
+  select.value = chosen && batches[chosen]
+    ? chosen
+    : String(batches.length - 1);
+
   const batch = batches[Number(select.value)];
   const rows = aggregate(batch);
-  const metricKey = $('bench-metric').value, metric = METRICS[metricKey];
+  const metricKey = $('bench-metric').value;
+  const metric = METRICS[metricKey];
   const seq = rows.find(r => r.mode === 'seq');
-  $('bench-meta').textContent = `${batch.cpu} · ${batch.cores} núcleos lógicos${batch.gpu ? ` · ${batch.gpu} · CUDA ${batch.cuda_memory_percent}% da VRAM livre` : ''} · ${rows[0]?.frames ?? '?'} quadros · ${batch.runs.length} execuções`;
 
-  const threadsUsed = [...new Set(rows.filter(r => !['seq', 'cuda'].includes(r.mode)).map(r => r.threads))].sort((a, b) => a - b);
-  const xs = [...(threadsUsed.length ? threadsUsed : rows.some(r => r.mode === 'seq') ? [1] : []),
-    ...(rows.some(r => r.mode === 'cuda') ? ['GPU'] : [])];
-  const modes = ['omp', 'pipeline', 'cuda'].filter(m => rows.some(r => r.mode === m));
-  legend($('bench-legend'), [{ label: 'seq (referência)', color: MODE_COLORS.seq, dashed: true },
-    ...modes.map(m => ({ label: m === 'pipeline' ? 'pipeline (+2 threads de E/S)' : m, color: MODE_COLORS[m] }))]);
+  $('bench-meta').textContent =
+    `${batch.cpu} · ${batch.cores} núcleos lógicos` +
+    `${batch.gpu ? ` · ${batch.gpu} · CUDA ${batch.cuda_memory_percent}% da VRAM livre` : ''}` +
+    ` · ${rows[0]?.frames ?? '?'} quadros · ${batch.runs.length} execuções`;
 
-  const pointTip = (r, k) => `<b>${r.mode === 'cuda' ? `CUDA · ${batch.gpu || 'GPU'}` : `${r.mode} · ${r.threads} thread(s)${r.mode === 'pipeline' ? ' + 2' : ''}`}</b><br>${METRICS[k].label}: ${fmt(r[k].med)} ${METRICS[k].unit} (mediana)<br>min ${fmt(r[k].min)} · max ${fmt(r[k].max)} · ${r.n} execuções`;
+  // Reúne as quantidades de threads e processos no mesmo eixo numérico.
+  const workersUsed = [
+    ...new Set(
+      rows
+        .filter(r => !['seq', 'cuda'].includes(r.mode))
+        .map(r => r.workers)
+    )
+  ].sort((a, b) => a - b);
+
+  const xs = [
+    ...(workersUsed.length ? workersUsed : rows.some(r => r.mode === 'seq') ? [1] : []),
+    ...(rows.some(r => r.mode === 'cuda') ? ['GPU'] : [])
+  ];
+
+  // Modos que possuem resultados nesta rodada.
+  const modes = ['omp', 'pipeline', 'mpi', 'cuda']
+    .filter(m => rows.some(r => r.mode === m));
+
+  const modeLabels = {
+    omp: 'OpenMP',
+    pipeline: 'Pipeline (+2 threads de E/S)',
+    mpi: 'MPI (processos)',
+    cuda: 'CUDA'
+  };
+
+  legend(
+    $('bench-legend'),
+    [
+      { label: 'seq (referência)', color: MODE_COLORS.seq, dashed: true },
+      ...modes.map(m => ({
+        label: modeLabels[m],
+        color: MODE_COLORS[m]
+      }))
+    ]
+  );
+
+  // Identificação comum das configurações nos gráficos e tooltips.
+  const configLabel = r => {
+    if (r.mode === 'cuda') return `CUDA · ${batch.gpu || 'GPU'}`;
+    if (r.mode === 'seq') return 'seq · 1 thread';
+
+    return `${r.mode} · ${r.workers} ${r.workerUnit}` +
+      (r.mode === 'pipeline' ? ' + 2 threads de E/S' : '');
+  };
+
+  const xValue = r => r.mode === 'cuda' ? 'GPU' : r.workers;
+
+  const pointTip = (r, k) =>
+    `<b>${configLabel(r)}</b><br>` +
+    `${METRICS[k].label}: ${fmt(r[k].med)} ${METRICS[k].unit} (mediana)<br>` +
+    `min ${fmt(r[k].min)} · max ${fmt(r[k].max)} · ${r.n} execuções`;
+
+  // ---------- gráfico de tempo ----------
   const series = modes.map(m => ({
-    name: m, color: MODE_COLORS[m],
-    points: rows.filter(r => r.mode === m).map(r => ({ x: m === 'cuda' ? 'GPU' : r.threads, y: r[metricKey].med, min: r[metricKey].min, max: r[metricKey].max, tip: pointTip(r, metricKey) }))
+    name: modeLabels[m],
+    color: MODE_COLORS[m],
+    points: rows
+      .filter(r => r.mode === m)
+      .map(r => ({
+        x: xValue(r),
+        y: r[metricKey].med,
+        min: r[metricKey].min,
+        max: r[metricKey].max,
+        tip: pointTip(r, metricKey)
+      }))
   }));
-  const refs = seq ? [{ y: seq[metricKey].med, color: MODE_COLORS.seq, tip: pointTip(seq, metricKey) }] : [];
-  $('chart-time-title').textContent = `${metric.label} por configuração (${metric.better} é melhor)`;
-  lineChart($('chart-time'), { series, refs, xs, xLabel: 'threads de cifra / GPU', yLabel: `${metric.label} (${metric.unit})` });
 
+  const refs = seq
+    ? [{
+        y: seq[metricKey].med,
+        color: MODE_COLORS.seq,
+        tip: pointTip(seq, metricKey)
+      }]
+    : [];
+
+  $('chart-time-title').textContent =
+    `${metric.label} por configuração (${metric.better} é melhor)`;
+
+  lineChart($('chart-time'), {
+    series,
+    refs,
+    xs,
+    xLabel: 'threads de cifra / processos MPI / GPU',
+    yLabel: `${metric.label} (${metric.unit})`
+  });
+
+  // ---------- gráfico de speedup e eficiência ----------
   if (seq) {
-    const speed = (r) => metricKey === 'fps' ? r.fps.med / seq.fps.med : seq[metricKey].med / r[metricKey].med;
+    const speed = r =>
+      metricKey === 'fps'
+        ? r.fps.med / seq.fps.med
+        : seq[metricKey].med / r[metricKey].med;
+
     const sSeries = modes.map(m => ({
-      name: m, color: MODE_COLORS[m],
-      points: rows.filter(r => r.mode === m).map(r => ({ x: m === 'cuda' ? 'GPU' : r.threads, y: speed(r),
-        tip: `<b>${r.mode === 'cuda' ? `CUDA · ${batch.gpu || 'GPU'}` : `${r.mode} · ${r.threads} thread(s)`}</b><br>Speedup: ${fmt(speed(r))}×${m === 'cuda' ? '' : `<br>Eficiência: ${fmt(speed(r) / r.threads * 100, 0)}%`}` }))
+      name: modeLabels[m],
+      color: MODE_COLORS[m],
+      points: rows
+        .filter(r => r.mode === m)
+        .map(r => {
+          const value = speed(r);
+          const efficiencyUnit = r.mode === 'pipeline'
+            ? 'threads de cifra'
+            : r.workerUnit;
+
+          const efficiency = m === 'cuda'
+            ? null
+            : value / r.workers * 100;
+
+          return {
+            x: xValue(r),
+            y: value,
+            tip:
+              `<b>${configLabel(r)}</b><br>` +
+              `Speedup: ${fmt(value)}×` +
+              (efficiency === null
+                ? ''
+                : `<br>Eficiência (${efficiencyUnit}): ${fmt(efficiency, 0)}%`)
+          };
+        })
     }));
-    $('chart-speedup-title').textContent = `Speedup sobre o seq (${metric.label.toLowerCase()}); tracejado cinza = ideal`;
-    lineChart($('chart-speedup'), { series: sSeries, refs: [{ y: 1, color: MODE_COLORS.seq, tip: '<b>seq</b><br>Speedup 1×' }], xs, xLabel: 'threads de cifra / GPU', yLabel: 'speedup (×)', ideal: true });
+
+    $('chart-speedup-title').textContent =
+      `Speedup sobre o seq (${metric.label.toLowerCase()}); tracejado cinza = ideal`;
+
+    lineChart($('chart-speedup'), {
+      series: sSeries,
+      refs: [{
+        y: 1,
+        color: MODE_COLORS.seq,
+        tip: '<b>seq</b><br>Speedup 1×'
+      }],
+      xs,
+      xLabel: 'threads de cifra / processos MPI / GPU',
+      yLabel: 'speedup (×)',
+      ideal: true
+    });
   }
 
-  legend($('stage-legend'), STAGES.map(s => ({ label: s.label, color: s.color })).concat([{ label: 'Tempo total', color: '#f8fafc' }]));
-  stageChart($('chart-stages'), [...rows].sort((a, b) => MODE_ORDER[a.mode] - MODE_ORDER[b.mode] || a.threads - b.threads));
+  // ---------- gráfico de etapas ----------
+  legend(
+    $('stage-legend'),
+    STAGES.map(s => ({
+      label: s.label,
+      color: s.color
+    })).concat([{
+      label: 'Tempo total',
+      color: '#f8fafc'
+    }])
+  );
 
-  const cell = s => s ? `${fmt(s.med)} <small>(${fmt(s.min)}–${fmt(s.max)})</small>` : '—';
-  $('bench-table').innerHTML = `<thead><tr><th>Modo</th><th>Threads / dispositivo</th><th>Total (s)</th><th>Leitura (s)</th><th>Cifra (s)</th><th>Gravação (s)</th><th>Quadros/s</th><th>Speedup total</th><th>Speedup cifra</th></tr></thead><tbody>${
-    rows.map(r => `<tr><td>${r.mode}</td><td>${r.mode === 'cuda' ? 'GPU' : `${r.threads}${r.mode === 'pipeline' ? '+2' : ''}`}</td><td>${cell(r.tempo_total)}</td><td>${cell(r.leitura)}</td><td>${cell(r.cifra)}</td><td>${cell(r.gravacao)}</td><td>${cell(r.fps)}</td><td>${seq ? fmt(seq.tempo_total.med / r.tempo_total.med) + '×' : '—'}</td><td>${seq ? fmt(seq.cifra.med / r.cifra.med) + '×' : '—'}</td></tr>`).join('')}</tbody>`;
+  stageChart(
+    $('chart-stages'),
+    [...rows].sort((a, b) =>
+      MODE_ORDER[a.mode] - MODE_ORDER[b.mode] ||
+      (a.workers === 'GPU' ? Infinity : a.workers) -
+      (b.workers === 'GPU' ? Infinity : b.workers)
+    )
+  );
+
+  // ---------- tabela detalhada ----------
+  const cell = s =>
+    s
+      ? `${fmt(s.med)} <small>(${fmt(s.min)}–${fmt(s.max)})</small>`
+      : '—';
+
+  const modeNames = {
+    seq: 'Sequencial',
+    omp: 'OpenMP',
+    pipeline: 'Pipeline',
+    mpi: 'MPI',
+    cuda: 'CUDA'
+  };
+
+  const workerLabel = r => {
+    if (r.mode === 'cuda') return 'GPU';
+    if (r.mode === 'seq') return '1 thread';
+
+    return `${r.workers}${r.mode === 'pipeline' ? '+2' : ''} ${r.workerUnit}`;
+  };
+
+  $('bench-table').innerHTML = `
+    <thead>
+      <tr>
+        <th>Modo</th>
+        <th>Unidades de processamento</th>
+        <th>Total (s)</th>
+        <th>Leitura (s)</th>
+        <th>Cifra (s)</th>
+        <th>Gravação (s)</th>
+        <th>Quadros/s</th>
+        <th>Speedup total</th>
+        <th>Speedup cifra</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(r => `
+        <tr>
+          <td>${modeNames[r.mode] || r.mode}</td>
+          <td>${workerLabel(r)}</td>
+          <td>${cell(r.tempo_total)}</td>
+          <td>${cell(r.leitura)}</td>
+          <td>${cell(r.cifra)}</td>
+          <td>${cell(r.gravacao)}</td>
+          <td>${cell(r.fps)}</td>
+          <td>${seq ? fmt(seq.tempo_total.med / r.tempo_total.med) + '×' : '—'}</td>
+          <td>${seq ? fmt(seq.cifra.med / r.cifra.med) + '×' : '—'}</td>
+        </tr>
+      `).join('')}
+    </tbody>`;
 }
 
 // ---------- analise do quadro ----------
@@ -284,34 +562,169 @@ function renderAnalysis(a) {
 
 // ---------- linhas do tempo esquematicas dos modos ----------
 // Unidades: ler = 1, gravar = 1, cifrar = 3 com uma thread (1 com tres threads). Tres quadros.
+
+
 const TIMELINES = [
-  { title: 'seq', note: '1 thread', rows: [
-    ['thread 0', [[0, 1, 'L', 0], [1, 3, 'C', 0], [4, 1, 'G', 0], [5, 1, 'L', 1], [6, 3, 'C', 1], [9, 1, 'G', 1], [10, 1, 'L', 2], [11, 3, 'C', 2], [14, 1, 'G', 2]]]
-  ] },
-  { title: 'omp 3', note: '3 threads', rows: [
-    ['thread 0', [[0, 1, 'L', 0], [1, 1, 'C', 0], [2, 1, 'G', 0], [3, 1, 'L', 1], [4, 1, 'C', 1], [5, 1, 'G', 1], [6, 1, 'L', 2], [7, 1, 'C', 2], [8, 1, 'G', 2]]],
-    ['thread 1', [[1, 1, 'C', 0], [4, 1, 'C', 1], [7, 1, 'C', 2]]],
-    ['thread 2', [[1, 1, 'C', 0], [4, 1, 'C', 1], [7, 1, 'C', 2]]]
-  ] },
-  { title: 'pipeline 3+2', note: '5 threads', rows: [
-    ['leitora', [[0, 1, 'L', 0], [1, 1, 'L', 1], [2, 1, 'L', 2]]],
-    ['cifra 1', [[1, 1, 'C', 0], [2, 1, 'C', 1], [3, 1, 'C', 2]]],
-    ['cifra 2', [[1, 1, 'C', 0], [2, 1, 'C', 1], [3, 1, 'C', 2]]],
-    ['cifra 3', [[1, 1, 'C', 0], [2, 1, 'C', 1], [3, 1, 'C', 2]]],
-    ['gravadora', [[2, 1, 'G', 0], [3, 1, 'G', 1], [4, 1, 'G', 2]]]
-  ] }
+  {
+    title: 'seq',
+    note: '1 thread',
+	cipherWorkers: 1,
+    rows: [
+      ['thread 0', [
+        [0, 1, 'L', 0], [1, 3, 'CF', 0], [4, 1, 'G', 0],
+        [5, 1, 'L', 1], [6, 3, 'CF', 1], [9, 1, 'G', 1],
+        [10, 1, 'L', 2], [11, 3, 'CF', 2], [14, 1, 'G', 2]
+      ]]
+    ]
+  },
+  {
+    title: 'omp 3',
+    note: '3 threads',
+	cipherWorkers: 3,
+    rows: [
+      ['thread 0', [
+        [0, 1, 'L', 0], [1, 1, 'C1', 0], [2, 1, 'G', 0],
+        [3, 1, 'L', 1], [4, 1, 'C1', 1], [5, 1, 'G', 1],
+        [6, 1, 'L', 2], [7, 1, 'C1', 2], [8, 1, 'G', 2]
+      ]],
+      ['thread 1', [
+        [1, 1, 'C2', 0], [4, 1, 'C2', 1], [7, 1, 'C2', 2]
+      ]],
+      ['thread 2', [
+        [1, 1, 'C3', 0], [4, 1, 'C3', 1], [7, 1, 'C3', 2]
+      ]]
+    ]
+  },
+  {
+    title: 'pipeline 3+2',
+    note: '5 threads',
+	cipherWorkers: 3,
+    rows: [
+      ['leitora', [
+        [0, 1, 'L', 0], [1, 1, 'L', 1], [2, 1, 'L', 2]
+      ]],
+      ['cifra 1', [
+        [1, 1, 'C1', 0], [2, 1, 'C1', 1], [3, 1, 'C1', 2]
+      ]],
+      ['cifra 2', [
+        [1, 1, 'C2', 0], [2, 1, 'C2', 1], [3, 1, 'C2', 2]
+      ]],
+      ['cifra 3', [
+        [1, 1, 'C3', 0], [2, 1, 'C3', 1], [3, 1, 'C3', 2]
+      ]],
+      ['gravadora', [
+        [2, 1, 'G', 0], [3, 1, 'G', 1], [4, 1, 'G', 2]
+      ]]
+    ]
+  },
+  {
+    title: 'mpi 3',
+    note: '3 processos',
+	cipherWorkers: 3,
+    rows: [
+      ['rank 0', [
+        [0, 1, 'L', 0], [1, 1, 'D', 0], [2, 1, 'C1', 0], [3, 1, 'R', 0], [4, 1, 'G', 0],
+        [5, 1, 'L', 1], [6, 1, 'D', 1], [7, 1, 'C1', 1], [8, 1, 'R', 1], [9, 1, 'G', 1],
+        [10, 1, 'L', 2], [11, 1, 'D', 2], [12, 1, 'C1', 2], [13, 1, 'R', 2], [14, 1, 'G', 2]
+      ]],
+      ['rank 1', [
+        [1, 1, 'E', 0], [2, 1, 'C2', 0], [3, 1, 'V', 0],
+        [6, 1, 'E', 1], [7, 1, 'C2', 1], [8, 1, 'V', 1],
+        [11, 1, 'E', 2], [12, 1, 'C2', 2], [13, 1, 'V', 2]
+      ]],
+      ['rank 2', [
+        [1, 1, 'E', 0], [2, 1, 'C3', 0], [3, 1, 'V', 0],
+        [6, 1, 'E', 1], [7, 1, 'C3', 1], [8, 1, 'V', 1],
+        [11, 1, 'E', 2], [12, 1, 'C3', 2], [13, 1, 'V', 2]
+      ]]
+    ]
+  }
 ];
 
 function renderTimelines() {
-  const colors = { L: STAGES[0].color, C: STAGES[1].color, G: STAGES[2].color };
-  const names = { L: 'lê', C: 'cifra', G: 'grava' };
-  legend($('mode-legend'), [...STAGES.map(s => ({ label: s.label, color: s.color })), { label: 'Esperando', color: '#1e293b' }]);
+	const colors = {
+	  L: STAGES[0].color,
+	  CF: STAGES[1].color,
+	  C1: STAGES[1].color,
+	  C2: STAGES[1].color,
+	  C3: STAGES[1].color,
+	  G: STAGES[2].color,
+	  D: '#38bdf8',
+	  E: '#38bdf8',
+	  R: '#38bdf8',
+	  V: '#38bdf8'
+	};
+
+	const names = {
+	  L: 'lê',
+	  CF: 'Cifra',
+	  C1: 'Cifra 1',
+	  C2: 'Cifra 2',
+	  C3: 'Cifra 3',
+	  G: 'grava',
+	  D: 'envia',
+	  E: 'recebe',
+	  R: 'reúne',
+	  V: 'envia'
+	};
+
+	const descriptions = {
+	  L: 'Leitura do quadro',
+	  CF: 'Cifra o quadro inteiro',
+	  C1: 'Primeiro participante cifra sua parcela do quadro',
+	  C2: 'Segundo participante cifra sua parcela do quadro',
+	  C3: 'Terceiro participante cifra sua parcela do quadro',
+	  G: 'Gravação do quadro pelo rank 0',
+	  D: 'MPI_Scatterv: rank 0 envia as partes do quadro',
+	  E: 'MPI_Scatterv: processo recebe sua parte do quadro',
+	  R: 'MPI_Gatherv: rank 0 reúne as partes processadas',
+	  V: 'MPI_Gatherv: processo envia sua parte processada ao rank 0'
+	};
+
+  legend($('mode-legend'), [
+    ...STAGES.map(s => ({ label: s.label, color: s.color })),
+    { label: 'Comunicação MPI', color: '#38bdf8' },
+    { label: 'Esperando', color: '#1e293b' }
+  ]);
+
   $('mode-timelines').innerHTML = TIMELINES.map(t => {
-    const end = Math.max(...t.rows.flatMap(([, blocks]) => blocks.map(([s, len]) => s + len)));
-    return `<div class="mode-timeline"><div class="mode-head"><b>${t.title}</b><span>${t.note} · termina em <b>${end}</b> unidades</span></div>${
-      t.rows.map(([label, blocks]) => `<div class="mode-row"><span class="mode-label">${label}</span><div class="mode-track">${
-        blocks.map(([start, len, stage, q]) => `<span class="mode-block" style="grid-column:${start + 1} / span ${len};background:${colors[stage]}" title="${label}: ${names[stage]} o quadro ${q}">${names[stage]} Q${q}</span>`).join('')
-      }</div></div>`).join('')}</div>`;
+    const end = Math.max(
+      ...t.rows.flatMap(([, blocks]) =>
+        blocks.map(([s, len]) => s + len)
+      )
+    );
+
+    return `
+      <div class="mode-timeline">
+        <div class="mode-head">
+          <b>${t.title}</b>
+          <span>${t.note} · extensão esquemática: <b>${end}</b> posições</span>
+        </div>
+        ${t.rows.map(([label, blocks]) => `
+          <div class="mode-row">
+            <span class="mode-label">${label}</span>
+            <div class="mode-track">
+              ${blocks.map(([start, len, stage, q]) => {
+				  const blockText = stage === 'CF'
+				  ? `Cifra Q${q}`
+				  : /^C[1-3]$/.test(stage)
+					? `Cifra Q${q}/${t.cipherWorkers}`
+					: `${names[stage]} Q${q}`;
+
+				  return `
+					<span
+					  class="mode-block"
+					  style="grid-column:${start + 1} / span ${len};background:${colors[stage]}"
+					  title="${label}: ${descriptions[stage]} · quadro ${q}">
+					  ${blockText}
+					</span>
+				  `;
+				}).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
   }).join('');
 }
 
@@ -423,14 +836,30 @@ async function start(path, body) {
 }
 
 function updateEstimate() {
-  const modes = [...document.querySelectorAll('[name=bench-mode]:checked')].map(i => i.value);
+  const modes = [...document.querySelectorAll('[name=bench-mode]:checked')]
+    .map(i => i.value);
+
   const threads = [...document.querySelectorAll('[name=bench-thread]:checked')].length;
+  const processes = [...document.querySelectorAll('[name=bench-process]:checked')].length;
   const reps = Number($('bench-reps').value) || 1;
+
   $('bench-cuda-memory').disabled = $('bench-cuda').disabled || !$('bench-cuda').checked;
-  const cpuModes = modes.filter(mode => mode !== 'cuda');
-  const configs = 1 + cpuModes.length * threads + Number(modes.includes('cuda'));
+
+  // Configurações que utilizam threads.
+  const threadModes = modes.filter(mode => ['omp', 'pipeline'].includes(mode));
+
+  // Cada quantidade de processos selecionada representa uma configuração MPI.
+  const mpiConfigs = modes.includes('mpi') ? processes : 0;
+
+  const configs = 1
+    + threadModes.length * threads
+    + mpiConfigs
+    + Number(modes.includes('cuda'));
+
   const warmups = 1 + Number(modes.includes('cuda'));
-  $('bench-estimate').textContent = `${configs * reps} medições + ${warmups} aquecimento(s)`;
+
+  $('bench-estimate').textContent =
+    `${configs * reps} medições + ${warmups} aquecimento(s)`;
 }
 
 async function init() {
@@ -492,6 +921,7 @@ async function init() {
   $('bench-run').addEventListener('click', () => start('/api/bench', {
     modes: [...document.querySelectorAll('[name=bench-mode]:checked')].map(i => i.value),
     threads: [...document.querySelectorAll('[name=bench-thread]:checked')].map(i => Number(i.value)),
+	processes: [...document.querySelectorAll('[name=bench-process]:checked')].map(i => Number(i.value)),
     reps: Number($('bench-reps').value), seconds: Number($('bench-seconds').value),
     start: Number($('video-start').value), discard: $('bench-discard').checked,
     memoryPercent: Number($('bench-cuda-memory').value)
@@ -517,6 +947,12 @@ async function init() {
   const cudaOption = $('video-mode').querySelector('option[value="cuda"]');
   const benchCuda = $('bench-cuda');
   const mpiOption = $('video-mode').querySelector('option[value="mpi"]');
+  const benchMPI = $('bench-mpi');
+
+  benchMPI.disabled = !info.mpi;
+  benchMPI.parentElement.title = info.mpi
+    ? 'Incluir configurações MPI no benchmark'
+    : 'MPI indisponível: verifique mpirun e video_hill_mpi';
 
   mpiOption.disabled = !info.mpi;
 
@@ -545,6 +981,10 @@ async function init() {
   $('video-threads').max = maxThreads;
   $('bench-threads').innerHTML = Array.from({ length: maxThreads }, (_, i) => i + 1)
     .map(t => `<label class="video-chip"><input type="checkbox" name="bench-thread" value="${t}"${t <= Math.min(4, info.cores || 4) ? ' checked' : ''}> ${t}</label>`).join('');
+  // Quantidade de processos MPI disponíveis para seleção.
+  const maxProcesses = Math.min(16, Math.max(2, info.cores || 4));
+  $('bench-processes').innerHTML = Array.from({ length: maxProcesses - 1 },(_, i) => i + 2)
+    .map(p =>`<label class="video-chip"><input type="checkbox" name="bench-process" value="${p}"${p <= 4 ? ' checked' : ''}>${p}</label>`).join('');
   updateEstimate();
   const problems = [!info.ffmpeg && 'FFmpeg não encontrado', !info.binary && 'video_hill não compilado', !info.source && 'video.mp4 ausente'].filter(Boolean);
   const banner = $('video-server');

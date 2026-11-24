@@ -1,46 +1,91 @@
 # 🔐 Cifra de Hill Paralela (PCD - UNIFESP)
 
 > Projeto desenvolvido para a disciplina de **Programação Concorrente e Distribuída (PCD)** da Universidade Federal de São Paulo (**UNIFESP**).
-> **Objetivo atual:** comparar execuções sequenciais, paralelas em CPU (OpenMP/Pthreads) e em GPU CUDA da **Cifra de Hill aplicada a imagens e vídeos**. O simulador de texto continua como introdução didática.
+> **Objetivo atual:** comparar diferentes estratégias de processamento da **Cifra de Hill aplicada a imagens e vídeos**: execução sequencial, paralelismo em CPU com OpenMP e Pthreads, paralelismo distribuído com MPI e processamento em GPU CUDA. O simulador de texto continua como introdução didática.
 
 ## ⚙️ Requisitos
 
 | Para quê | O que instalar |
 |---|---|
 | Programas C de imagem e vídeo | GCC com OpenMP (Linux/WSL) **ou** Visual Studio / Build Tools 2022 com o componente C++ (Windows) |
-| **Tudo que envolve vídeo** (programa `video_hill` e aba 5 do site) | **FFmpeg 5.1 ou superior, com `ffmpeg` e `ffprobe` no PATH** |
-| Site e aba de vídeo | Python 3.10 ou superior (só a biblioteca padrão) |
+| **Execução MPI de vídeo (Linux/WSL)** | MPICH ou Open MPI, incluindo `mpicc` e `mpirun` |
+| **Tudo que envolve vídeo** (programas `video_hill`/`video_hill_mpi` e aba 5 do site) | **FFmpeg 5.1 ou superior, com `ffmpeg` e `ffprobe` no PATH** |
+| Site e aba de vídeo | Python 3.10 ou superior (somente a biblioteca padrão) |
 | Modos GPU das abas de imagens e vídeo/benchmark | GPU NVIDIA compatível, driver NVIDIA e CUDA Toolkit (`nvcc`); no Windows, Visual Studio Build Tools 2022 com MSVC |
 
-**O FFmpeg é obrigatório para o vídeo.** O programa C não decodifica MP4 sozinho: ele chama o `ffmpeg` para extrair os quadros e para gravar o resultado, e o `ffprobe` para ler resolução e taxa de quadros. Para instalar:
+**O FFmpeg é obrigatório para o vídeo.** Os programas C não decodificam MP4 sozinhos: utilizam o `ffmpeg` para extrair os quadros e gravar o resultado, e o `ffprobe` para consultar resolução e taxa de quadros.
 
-```bash
-# Windows (depois, abra um terminal novo para o PATH ser atualizado)
+No Windows, instale o FFmpeg pelo winget (abra um terminal novo depois da instalação):
+
+```powershell
 winget install Gyan.FFmpeg.Essentials
-
-# Ubuntu / WSL
-sudo apt install ffmpeg
 ```
 
-Confira com `ffmpeg -version`. O `server.py` também encontra uma instalação feita pelo winget que ainda não esteja no PATH do terminal atual.
+No Ubuntu/WSL, instale as dependências para vídeo e MPI com uma das opções abaixo.
+
+**Opção A — MPICH:**
+
+```bash
+sudo apt update
+sudo apt install build-essential ffmpeg mpich libmpich-dev
+```
+
+**Opção B — Open MPI:**
+
+```bash
+sudo apt update
+sudo apt install build-essential ffmpeg openmpi-bin libopenmpi-dev
+```
+
+Confira as ferramentas instaladas:
+
+```bash
+ffmpeg -version
+ffprobe -version
+mpicc --version
+mpirun --version
+```
+
+Também é possível testar a instalação MPI com o programa mínimo incluído no repositório:
+
+```bash
+mpicc -O2 -std=c11 hello_mpi.c -o hello_mpi
+mpirun -np 4 ./hello_mpi
+```
+
+O resultado deve mostrar os ranks de 0 a 3 e o total de quatro processos. O `server.py` também encontra uma instalação do FFmpeg feita pelo winget que ainda não esteja no PATH do terminal atual.
 
 ## 🚀 Início rápido (vídeo)
 
+### Linux / WSL
+
+Na raiz do repositório, compile os programas de vídeo:
+
 ```bash
-# 1. Compilar (Linux/WSL)
+# Versões sequencial, OpenMP e pipeline
 gcc -O2 -std=c11 -fopenmp HillCypherCode/video_hill.c -o video_hill
 
-# 2. Abrir o site com o laboratório de vídeo
-python server.py
+# Versão MPI (requer MPICH ou Open MPI)
+mpicc -O2 -std=c11 HillCypherCode/video_hill_mpi.c -o video_hill_mpi
 ```
 
-No Windows, compile no **Prompt de Desenvolvedor do Visual Studio**, na pasta do projeto:
+Inicie o servidor web:
+
+```bash
+python3 server.py
+```
+
+### Windows
+
+A versão sequencial/OpenMP/pipeline pode ser compilada no **Prompt de Desenvolvedor do Visual Studio**, na pasta do projeto:
 
 ```text
 cl /O2 /std:c11 /openmp HillCypherCode\video_hill.c /Fe:video_hill.exe
 ```
 
-Depois, abra **http://localhost:8085** e vá até a aba **5. Vídeo & Benchmarks**. O vídeo de teste `video.mp4` (1920×1080, 29,97 qps, 79 s, H.264) já está no repositório.
+A execução MPI está documentada e validada neste projeto em Linux/WSL. Não tratamos a compilação MPI nativa no Windows como requisito validado.
+
+Depois, abra **http://localhost:8085** e vá até a aba **5. Vídeo & Benchmarks**. O vídeo de teste `video.mp4` (1920×1080, 29,97 qps, aproximadamente 79 s, H.264) está no repositório.
 
 ---
 
@@ -90,11 +135,11 @@ winget install --id Nvidia.CUDA --exact --source winget
 
 No Visual Studio Installer, modifique **Build Tools 2022** e selecione a carga **Desenvolvimento para desktop com C++**, incluindo MSVC v143 e um Windows SDK. Depois inicie ou reinicie `python server.py`. O servidor procura `nvcc.exe` e `VsDevCmd.bat`, inicializando o ambiente MSVC para compilar automaticamente; não é necessário iniciar o servidor em um Developer PowerShell. Se o compilador ou a GPU não estiverem disponíveis, os controles CUDA ficam desativados e a interface mostra o motivo. A resposta GPU deve ser comparada com a CPU usando os mesmos bytes e a mesma semente; os tempos de imagem no navegador incluem transferência local e comunicação com o servidor.
 
-Na aba **5. Vídeo & Benchmarks**, o modo `cuda` conecta FFmpeg → backend CUDA → FFmpeg por pipes. O backend processa quadros brutos `yuv420p` em streaming; mantém uma alocação CUDA reutilizável e divide cada quadro em lotes limitados à porcentagem escolhida da VRAM livre. O índice da chave usa `quadro × blocos_por_quadro + bloco`, igual aos modos CPU. A demonstração cifra e decifra, grava a saída sem perdas e compara os hashes dos quadros. Leitura, cifra (cópias host↔GPU e kernel) e gravação são cronometradas separadamente. O benchmark descarta a saída quando essa opção está selecionada; caso contrário, cifra em raw e remove os arquivos intermediários ao terminar.
+Na aba **5. Vídeo & Benchmarks**, o modo `cuda` conecta FFmpeg → backend CUDA → FFmpeg por pipes. O backend processa quadros brutos `yuv420p` em streaming; mantém uma alocação CUDA reutilizável e divide cada quadro em lotes limitados à porcentagem escolhida da VRAM livre. O índice da chave usa `quadro × blocos_por_quadro + bloco`, igual aos modos CPU e MPI. A demonstração cifra e decifra, grava a saída sem perdas e compara os hashes dos quadros. Leitura, cifra (cópias host↔GPU e kernel) e gravação são cronometradas separadamente. O benchmark descarta a saída quando essa opção está selecionada; caso contrário, cifra em raw e remove os arquivos intermediários ao terminar.
 
-No painel **Benchmark**, marque `cuda` em **Modos** para incluí-lo. O baseline `seq` sempre entra; para os modos CPU selecionados são usadas as contagens de threads marcadas, enquanto CUDA é uma configuração GPU única. O benchmark faz aquecimentos CPU e CUDA próprios, depois intercala aleatoriamente cada configuração em cada repetição. Os gráficos e a tabela incluem tempo total, leitura, cifra (incluindo cópias e kernel GPU), gravação, quadros/s, medianas, mínimos/máximos e speedups sobre `seq`. CUDA aparece como categoria `GPU`, sem eficiência por thread. O slider define o teto de memória CUDA como percentual da VRAM livre no início de cada execução. A estimativa na interface conta medições e aquecimentos. O benchmark GPU não é misturado às rodadas CPU antigas em gráficos: selecione uma rodada CUDA no histórico para ver os resultados correspondentes.
+No painel **Benchmark**, marque `cuda` em **Modos** para incluí-lo. O baseline `seq` sempre entra. OpenMP e pipeline usam as contagens de threads selecionadas; MPI usa as quantidades escolhidas em **Processos MPI**; CUDA é uma configuração GPU única. O benchmark faz aquecimentos próprios para CPU, MPI e CUDA quando selecionados e depois intercala aleatoriamente cada configuração em cada repetição. Os gráficos e a tabela incluem tempo total, leitura, cifra, gravação, quadros/s, medianas, mínimos/máximos e speedups sobre `seq`. MPI é identificado pelo número de processos, OpenMP/pipeline pelo número de threads, e CUDA pela categoria `GPU`. A eficiência é calculada por thread nos modos OpenMP/pipeline e por processo no MPI; CUDA não possui eficiência por thread/processo CPU. O slider define o teto de memória CUDA como percentual da VRAM livre no início de cada execução. A estimativa na interface conta medições e aquecimentos.
 
-> ⚠️ Para compilar com suporte a PNG, o `image_hill.c` precisa de `stb_image.h` e `stb_image_write.h` em `HillCypherCode/` ([nothings/stb](https://github.com/nothings/stb)). Esses arquivos ainda não estão no repositório.
+> Os headers `stb_image.h` e `stb_image_write.h`, da biblioteca [stb](https://github.com/nothings/stb), estão versionados em `HillCypherCode/` e são utilizados pelo suporte a imagens PNG/JPEG.
 
 ---
 
@@ -116,24 +161,40 @@ video.mp4 ──► ffmpeg (decodifica) ──pipe──► video_hill (cifra qu
 
 ### Como a paralelização foi pensada
 
-Antes de implementar, comparamos duas estratégias:
+Para OpenMP e pipeline, a estratégia escolhida é dividir cada quadro entre as threads de cifra. Isso mantém poucos quadros em memória, preserva a ordem de saída e evita precisar reordenar quadros processados independentemente.
 
 | Estratégia | Vantagens | Desvantagens |
 |---|---|---|
-| **Dividir cada quadro entre as threads** (escolhida) | pouca memória (1 a 3 quadros), saída já em ordem, baixa latência por quadro | uma barreira por quadro |
-| Uma thread por quadro inteiro | quase nenhuma sincronização | T quadros em memória, saída precisa ser reordenada, o decodificador entrega quadros em sequência |
+| **Dividir cada quadro entre as threads/processos** (escolhida) | pouca memória, saída já em ordem, baixa latência por quadro | sincronização e comunicação a cada quadro |
+| Uma thread por quadro inteiro | pouca sincronização entre participantes | vários quadros em memória e necessidade de reordenar a saída |
 
-Em alta resolução, o custo da barreira (microssegundos) é desprezível perto do custo de cifrar um quadro (milissegundos). Além disso, ler e gravar costumam pesar tanto quanto a cifra. Por isso escolhemos a primeira estratégia e acrescentamos um **pipeline** que sobrepõe leitura, cifra e gravação.
+Em alta resolução, o custo de sincronização deve ser avaliado em relação ao custo de cifrar o quadro. Além da divisão da cifra, o **pipeline** sobrepõe leitura, cifra e gravação. Na versão MPI, os processos possuem espaços de memória independentes e trocam as partes do quadro por operações coletivas.
 
-### Os três modos e o número de threads
+### Os modos de execução e as unidades de processamento
 
-| Comando | Threads criadas | Quem faz o quê |
-|---|---|---|
-| `seq` | 1 | a mesma thread lê, cifra e grava, um quadro depois do outro |
-| `omp N` | N | as N threads dividem a cifra de cada quadro (`#pragma omp parallel for schedule(static)`); a thread principal também lê e grava, e enquanto isso as outras esperam |
-| `pipeline N` (**N+2**) | N + 2 | N só cifram, 1 só lê e 1 só grava, **todas ao mesmo tempo** |
+| Comando | Unidades de processamento | Quem faz o quê |
+|---|---:|---|
+| `seq` | 1 thread | a mesma thread lê, cifra e grava, um quadro depois do outro |
+| `omp N` | N threads | as N threads dividem a cifra de cada quadro (`#pragma omp parallel for schedule(static)`); a thread principal também lê e grava |
+| `pipeline N` (**N+2**) | N + 2 threads | N threads cifram; uma lê e outra grava, sobrepondo as etapas |
+| `mpirun -np N ./video_hill_mpi ...` | N processos MPI | o rank 0 coordena a leitura/distribuição/reunião/gravação e também cifra sua parcela; os demais ranks cifram suas respectivas parcelas |
 
-O número digitado é sempre o de **threads de cifra**. Por exemplo, `pipeline 3+2` cria 5 threads.
+Em `omp N` e `pipeline N`, o número selecionado representa as **threads de cifra**. No pipeline, são acrescentadas duas threads de E/S; portanto, `pipeline 3` cria cinco threads. No MPI, `N` é o total de processos, incluindo o rank 0. O rank 0 **não é apenas coordenador**: também processa sua parte do quadro.
+
+### Como funciona a distribuição MPI
+
+Para cada quadro, o processo de rank 0 lê os bytes recebidos do FFmpeg e divide o quadro em parcelas de blocos. Todos os ranks participam das operações coletivas:
+
+1. **Distribuição — `MPI_Scatterv`:** o rank 0 envia a cada processo a parcela que lhe foi atribuída. O rank 0 também mantém e processa sua própria parcela; os demais ranks recebem as suas.
+2. **Cifragem:** todos os processos cifram independentemente somente os blocos de sua parcela. O índice dos blocos permanece global, seguindo `quadro × blocos_por_quadro + bloco`.
+3. **Reunião — `MPI_Gatherv`:** os processos enviam suas parcelas cifradas e o rank 0 reúne os dados na ordem original, reconstruindo o quadro completo.
+4. **Gravação:** o rank 0 encaminha o quadro reconstruído ao FFmpeg.
+
+O programa também usa `MPI_Bcast` para compartilhar metadados e estados de leitura/execução, `MPI_Allreduce` para confirmar que todos os ranks conseguiram alocar os buffers e `MPI_Reduce` para obter o tempo de cifragem mais lento. Essas operações mantêm os ranks sincronizados e permitem registrar as estatísticas. O FFmpeg é iniciado somente pelo rank 0; os outros processos não abrem pipes de vídeo. Nesta integração, `mpirun` inicia os processos no mesmo computador Linux/WSL; a configuração de execução em múltiplos nós não faz parte do laboratório web.
+
+### O que cada modo significa visualmente
+
+A linha do tempo da interface é esquemática. `Cifra Q0/3`, por exemplo, indica a parcela do quadro Q0 processada por um dos três participantes da cifragem. No modo sequencial aparece `Cifra Q0`, pois uma única thread processa o quadro inteiro. No MPI, as etapas de comunicação representam a distribuição das parcelas (`MPI_Scatterv`) e a reunião dos resultados (`MPI_Gatherv`). As larguras dos blocos são ilustrativas e não representam tempos reais nem tamanhos necessariamente iguais.
 
 No pipeline, cada passo *s* é assim:
 
@@ -152,28 +213,57 @@ Cada passo dura o tempo da etapa mais lenta, e não a soma das três.
 
 ### Uso
 
+**Versões sequencial, OpenMP e pipeline:**
+
 ```bash
 ./video_hill <seq|omp|pipeline> <threads> <semente> <entrada> <saida.mkv|-> [formato] [raw|ffv1]
 
 ./video_hill pipeline 3 123 video.mp4 cifrado.mkv                       # cifrar
-./video_hill pipeline 3 123 cifrado.mkv recuperado.mkv yuv420p ffv1     # decifrar (mesma operação, mesma semente)
+./video_hill pipeline 3 123 cifrado.mkv recuperado.mkv yuv420p ffv1     # decifrar
 ./video_hill omp 4 123 video.mp4 -                                      # medir sem gravar em disco
 ```
 
+**Versão MPI (Linux/WSL):**
+
+```bash
+mpirun -np <processos> ./video_hill_mpi <semente> <entrada> <saida.mkv|-|hash> [formato] [raw|ffv1]
+
+# Cifrar com 4 processos
+mpirun -np 4 ./video_hill_mpi 123 video.mp4 cifrado.mkv yuv420p raw
+
+# Decifrar com os mesmos 4 processos e a mesma semente
+mpirun -np 4 ./video_hill_mpi 123 cifrado.mkv recuperado.mkv yuv420p ffv1
+
+# Processar e descartar a saída, sem gravar o vídeo cifrado
+mpirun -np 4 ./video_hill_mpi 123 video.mp4 - yuv420p raw
+
+# Calcular SHA-256 dos quadros cifrados, sem gerar arquivo de vídeo
+mpirun -np 4 ./video_hill_mpi 123 video.mp4 hash yuv420p
+```
+
+O número passado a `-np` é a quantidade **total de processos MPI**, incluindo o rank 0. O processo de rank 0 também participa da cifragem; ele não é um processo exclusivamente dedicado à coordenação.
+
 - **Formato de pixel:** `yuv420p` (padrão, nativo da maioria dos vídeos), `yuv444p`, `rgb24` ou `gray`. Use o mesmo formato para cifrar e decifrar.
 - **Codec `raw` (padrão):** grava os quadros sem compressão. Quadros cifrados parecem ruído e não comprimem. Num trecho 1080p de 301 quadros, o FFV1 gerou 948 MB contra 893 MB do raw e levou cerca de 23 s para codificar, contra 2,4 s.
-- **Codec `ffv1`:** compressão sem perdas. Vale a pena para o vídeo **decifrado** (90 MB no mesmo trecho). Como o FFV1 não aceita `rgb24`, esse formato é guardado como `bgr0`, sem perda.
+- **Codec `ffv1`:** compressão sem perdas. Vale a pena para o vídeo **decifrado**. Como o FFV1 não aceita `rgb24`, esse formato é guardado como `bgr0`, sem perda.
 - **Saída `-`:** os quadros são descartados (`ffmpeg -f null`). Isso tira o disco da medição.
+- **Saída `hash` (MPI):** calcula SHA-256 dos quadros cifrados, sem gravar o arquivo de vídeo.
 
-O programa imprime uma linha como esta:
+O programa sequencial/OpenMP/pipeline imprime uma linha como esta:
 
 ```text
 modo=pipeline threads=3+2 quadros=241 resolucao=1920x1080 formato=yuv420p bytes_quadro=3110400 codec=raw tempo_total=4.811 s leitura=1.436 s cifra=2.515 s gravacao=0.786 s fps=50.1
 ```
 
-- **`cifra`:** soma, quadro a quadro, o tempo da thread de cifra **mais lenta**. É medida igual nos modos `omp` e `pipeline`.
-- **`leitura` e `gravacao`:** incluem a espera pelo FFmpeg.
-- **`tempo_total`:** vai da abertura dos pipes até o fim do FFmpeg.
+A versão MPI imprime, entre outros campos, `modo=mpi processos=N`:
+
+```text
+modo=mpi processos=4 quadros=241 resolucao=1920x1080 formato=yuv420p bytes_quadro=3110400 codec=raw tempo_total=... s leitura=... s cifra=... s gravacao=... s fps=...
+```
+
+- **`cifra`:** nos modos OpenMP/pipeline, considera o tempo da thread de cifra mais lenta por quadro; no MPI, considera o maior tempo de cifragem entre os ranks por quadro, obtido por redução MPI com `MPI_MAX`.
+- **`leitura` e `gravacao`:** representam os tempos associados à leitura e à gravação dos quadros pelo FFmpeg, coordenadas pelo rank 0 no MPI.
+- **`tempo_total`:** vai da abertura dos pipes até o fim do FFmpeg. No MPI, inclui também o trabalho de comunicação e coordenação dentro do intervalo medido.
 
 ### Como verificar que nada se perdeu
 
@@ -188,18 +278,20 @@ Já verificado:
 
 | Verificação | Resultado |
 |---|---|
-| Ida e volta em `yuv420p`, `rgb24` e `gray`, com codecs `raw` e `ffv1` | hashes idênticos |
-| `seq`, `omp` e `pipeline` com 1 a 8 threads | geram o mesmo arquivo cifrado |
+| Ida e volta em `yuv420p`, `rgb24` e `gray`, com codecs `raw` e `ffv1` nos modos CPU testados | hashes idênticos |
+| `seq`, `omp` e `pipeline` com diferentes quantidades de threads | geram o mesmo arquivo cifrado nos testes realizados |
+| MPI com 2 processos pela API e 3 processos pela interface web | ida e volta com hashes idênticos nos casos testados |
+| Benchmark comparativo com `seq`, OpenMP e MPI | execuções concluídas e métricas registradas para 2 e 4 threads/processos |
 | Decifrar com a semente errada | não recupera o vídeo |
 | Quadro truncado | é recusado, e a saída parcial é apagada |
 
-Testado no Windows com MSVC 2022 e FFmpeg 9.0.1, e compilado sem avisos no GCC 13 (WSL) com `-Wall -Wextra`.
+A versão MPI foi compilada com `mpicc` e executada com MPICH 4.3.2 no Ubuntu/WSL 2. A integração MPI foi validada na demonstração web e no benchmark. A versão sequencial/OpenMP foi testada no Windows com MSVC 2022 e FFmpeg 9.0.1, e compilada sem avisos no GCC em WSL nos testes anteriores.
 
 ---
 
 ## 📊 Análises
 
-A aba **5. Vídeo & Benchmarks** do site (`python server.py`) executa os programas C/CUDA e o FFmpeg localmente, gerando as análises abaixo. Tudo que ela produz vai para `video_lab/`, que o git ignora.
+A aba **5. Vídeo & Benchmarks** do site (`python3 server.py` no Linux/WSL ou `python server.py` no Windows) executa os programas C, MPI/CUDA e o FFmpeg localmente, gerando as análises abaixo. Tudo que ela produz vai para `video_lab/`, que o git ignora.
 
 ### 1. Análise visual da cifra (um quadro)
 
@@ -225,17 +317,18 @@ Resultado no trecho de teste (`video.mp4`, a partir de 20 s, semente 123):
 
 É uma limitação da cifra, não do paralelismo. Uma correção possível seria torná-la afim, somando um vetor pseudoaleatório b derivado da semente e do índice: C = K·P + b. Isso não foi implementado, porque mudaria o algoritmo descrito no artigo.
 
-### 2. Benchmark: CPU × CUDA
+### 2. Benchmark: CPU × CUDA e OpenMP × MPI
 
-O benchmark sempre inclui `seq` e pode rodar `omp` e `pipeline` com as contagens de threads escolhidas, além de uma configuração CUDA na GPU detectada. CPU e GPU são categorias distintas; CUDA não é contado como um número de threads CPU.
+O benchmark sempre inclui `seq` como referência. Pode executar `omp` e `pipeline` com as quantidades de threads selecionadas, MPI com as quantidades de processos selecionadas e, opcionalmente, uma configuração CUDA na GPU detectada. OpenMP/pipeline e MPI são séries distintas nos gráficos, mas usam o mesmo eixo numérico para facilitar a comparação entre, por exemplo, 4 threads e 4 processos. CUDA aparece como uma categoria GPU separada, não como quantidade de threads ou processos CPU.
 
-- **Execução:** as configurações rodam várias vezes, em **ordem embaralhada**, depois de aquecimentos próprios da CPU e da GPU. CUDA participa uma vez por repetição, com o percentual de VRAM livre escolhido nos controles.
+- **Execução:** as configurações selecionadas são executadas várias vezes em **ordem embaralhada**. O benchmark realiza aquecimento da CPU e aquecimentos próprios de MPI e CUDA quando esses modos são selecionados.
+- **Configurações:** para OpenMP e pipeline, são usadas as quantidades marcadas em **Threads de cifra**; para MPI, são usadas as quantidades marcadas em **Processos MPI**. A quantidade MPI inclui o rank 0, que também participa da cifragem.
 - **Registro:** cada rodada é salva em `video_lab/benchmarks.json`.
-- **Métricas:** tempo total, leitura, cifra, gravação, quadros por segundo e speedups total e da cifra sobre `seq`. O tempo de cifra CUDA inclui cópias host↔GPU e execução do kernel; leitura e gravação correspondem aos pipes de quadros.
-- **Gráficos:** tempo por configuração (mediana, com mínimo e máximo), speedup sobre o `seq` e divisão do tempo por etapa, com o tempo total marcado. A GPU aparece como categoria `GPU`; a eficiência por thread só se aplica aos modos CPU.
+- **Métricas:** tempo total, leitura, cifra, gravação, quadros por segundo e speedups total e da cifra sobre `seq`. O tempo de cifra CUDA inclui cópias host↔GPU e execução do kernel.
+- **Gráficos:** tempo por configuração (mediana, com mínimo e máximo), speedup sobre `seq` e divisão do tempo por etapa, com o tempo total marcado. Os tooltips identificam threads ou processos. A eficiência é calculada separadamente por quantidade de threads OpenMP ou processos MPI; CUDA aparece como GPU e não possui eficiência por thread/processo CPU.
 - **Dados dinâmicos:** **os gráficos são gerados a partir das execuções reais** e mudam a cada rodada. As rodadas anteriores continuam disponíveis para comparação.
 
-Rodada de referência CPU: trecho de 8 s em 1080p (241 quadros), 5 repetições, sem gravar em disco, num Intel i5-4670K com 4 núcleos e Windows 10. Os valores abaixo são medianas e **não incluem CUDA**; use uma nova rodada CUDA para comparar a GPU no equipamento atual.
+Rodada histórica de referência CPU: trecho de 8 s em 1080p (241 quadros), 5 repetições, sem gravar em disco, num Intel i5-4670K com 4 núcleos e Windows 10. Essa tabela registra somente `seq`, OpenMP e pipeline; **não inclui MPI nem CUDA**. Ela é mantida como referência histórica, não como comparação dos resultados MPI atuais.
 
 | Configuração | Tempo total | Speedup total | Tempo da cifra | Speedup da cifra | Quadros/s |
 |---|---|---|---|---|---|
@@ -261,7 +354,7 @@ O que os números mostram:
 
 ### 4. Protocolo do artigo (tempo + energia na mesma máquina)
 
-Os experimentos do artigo rodam pela linha de comando, sem o site, para atender à revisão do WPADS: mesmo escopo de tempo em todas as versões, energia da CPU e da GPU na mesma janela, verificação de que descartar a saída não muda os bytes cifrados, e média ± dispersão com testes estatísticos.
+Os experimentos do artigo rodam pela linha de comando, sem o site, para atender à revisão do WPADS: mesmo escopo de tempo nas versões incluídas no protocolo, energia da CPU e da GPU na mesma janela, verificação de que descartar a saída não muda os bytes cifrados, e média ± dispersão com testes estatísticos. Esta seção documenta o fluxo de medição já existente para `seq`, OpenMP, pipeline e CUDA. A comparação MPI descrita neste README corresponde ao benchmark da interface web (`server.py` e `video_lab/benchmarks.json`); não se deve presumir que os scripts de tempo/energia desta seção já incluam MPI.
 
 **Preparar a máquina.** Os experimentos rodam no **Ubuntu do WSL 2**. No Windows 11 com o Controle Inteligente de Aplicativos ligado, o instalador do CUDA e os `.exe` sem assinatura são bloqueados; no WSL, nada disso acontece. Só o HWiNFO roda no Windows, porque o WSL não expõe o RAPL da CPU.
 
@@ -297,7 +390,7 @@ O `preparar_wsl.sh` copia o projeto para `~/pcd`, porque ler o vídeo por `/mnt/
 
 ### Limitações
 
-- Todas as medições foram feitas em uma única máquina Windows, com 4 núcleos.
+- A tabela histórica acima foi obtida em uma máquina Windows com 4 núcleos. As novas rodadas do laboratório web são medidas no computador em que o servidor local é executado; resultados de máquinas diferentes não devem ser misturados sem considerar as diferenças de hardware e ambiente.
 - O áudio não é copiado.
 - A cifra é didática e vaza informação em regiões uniformes.
 - O teste `tests/test_image_hill.py`, citado abaixo, ainda não existe no repositório.
@@ -355,51 +448,61 @@ Como $26 \equiv 0 \pmod{26}$, o valor modular é preservado e a divisão inteira
 Para permitir que qualquer integrante do grupo (ou o professor) compreenda o algoritmo antes de inspecionar o código, criamos uma aplicação web completa e interativa:
 
 ### Recursos do Site (5 Módulos):
-1. **1. O que é & Como Funciona (Aprenda do Zero):**
+**1. O que é & Como Funciona (Aprenda do Zero):**
    - Explicação histórica e intuitiva do objetivo da cifra poligráfica.
    - Régua interativa do alfabeto ($A=0 \dots Z=25$).
    - Demonstração visual da multiplicação matricial com botões de teste interativo ("CA", "OI", "PA").
    - O relógio de 26 horas ilustrando a aritmética modular $\pmod{26}$.
-2. **2. Laboratório Interativo (Mesa de Operação):**
+**2. Laboratório Interativo (Mesa de Operação):**
    - Matrizes espaçosas e de alta visibilidade, sem aperto ou vazamento de texto.
    - Esteira de blocos clicáveis.
    - **Fluxo inteligente e intuitivo de Encriptação & Decriptação:**
      - *Modo Encriptação:* Texto original $\to$ multiplicado por $K$ $\to$ gera o texto cifrado.
      - *Modo Decriptação:* O texto cifrado gerado é carregado na entrada $\to$ multiplicado por $K^{-1}$ $\to$ revela a mensagem original restaurada!
    - Execução passo a passo manual e reprodução automática (*auto-play*) com velocidade configurável.
-3. **3. Como Desfazer a Cifra (A Inversa em C Explicada):**
+**3. Como Desfazer a Cifra (A Inversa em C Explicada):**
    - O Dilema da Divisão em Criptografia (por que frações como $8/25 = 0.32$ não existem no alfabeto).
    - A Solução do Relógio (+26) e como a função `Mat_add_num_till_divisible` em C resolve isso sem aproximações.
    - Os 4 passos matemáticos da inversão (Determinante, Cofatores, Adjunta e Ajuste).
    - Tabela de rastreamento ao vivo para as 9 posições da matriz ativa.
-4. **4. Imagens e Paralelismo:**
+**4. Imagens e Paralelismo:**
    - Guia para iniciantes sobre pixels, canais RGB, blocos, módulo 256, matriz auto invertível e threads.
    - Carregamento de PNG/JPEG/PGM/PPM ou imagem de exemplo, com prévias de entrada e saída.
    - Cifragem e decifragem em Web Workers, usando a mesma geração de matrizes do código C.
    - Matriz e multiplicação linha por linha do bloco selecionado, divisão estática dos blocos entre workers e download em PNG ou PGM/PPM.
    - O tempo mostrado pertence ao navegador; os benchmarks do artigo devem usar o programa C.
-5. **5. Vídeo & Benchmarks** (precisa de `python server.py`, FFmpeg e `video_hill` compilado para modos CPU; CUDA é opcional):
-   - Explicação dos modos CPU `seq`, `omp` e `pipeline`, com linhas do tempo de cada um e o significado de “3+2”; modo `cuda` processa quadros em lotes limitados pela VRAM livre.
+**5. Vídeo & Benchmarks** (precisa de `server.py`, FFmpeg e `video_hill` compilado; MPI requer também `video_hill_mpi`, `mpirun` e `mpicc`; CUDA é opcional):
+   - Explicação dos modos `seq`, `omp`, `pipeline` e `mpi`, com linhas do tempo que ilustram a divisão dos quadros entre threads/processos, além do modo `cuda`.
    - Laboratório: cifra e decifra um trecho do `video.mp4`, mostra original, cifrado e decifrado sincronizados e confere o SHA-256 dos quadros.
    - Análise visual de um quadro: histogramas, entropia e correlação dos planos Y, U e V, com detecção do vazamento.
-   - Benchmark: baseline `seq`, configurações CPU por threads e configuração CUDA GPU opcional; compara tempo total, etapas, FPS, speedup e faixas de variação a partir das execuções reais.
+   - Benchmark: baseline `seq`, configurações OpenMP/pipeline por threads, MPI por processos e CUDA GPU opcional; compara tempo total, etapas, FPS, speedup, eficiência e faixas de variação a partir das execuções reais.
 
 ### Como rodar a aplicação web:
+
+No Linux/WSL:
 ```bash
+python3 server.py
+```
+
+No Windows:
+```powershell
 python server.py
 ```
-Acesse no navegador: **`http://localhost:8085`**. O `server.py` serve o site e atende a aba **5. Vídeo & Benchmarks**, executando `video_hill`/FFmpeg nos modos CPU e o backend CUDA/FFmpeg quando CUDA estiver disponível. O servidor usa só a biblioteca padrão do Python e escuta apenas em `127.0.0.1`. As abas 1 a 4 também funcionam com `python -m http.server 8085` ou `npx serve .`; os modos CUDA precisam de `server.py`, porque o navegador envia os dados ao backend local. A aba de imagens usa módulos JavaScript e Web Workers, por isso também precisa de um servidor local.
 
-A aba de vídeo precisa de três coisas:
+Acesse no navegador: **`http://localhost:8085`**. O `server.py` serve o site e atende a aba **5. Vídeo & Benchmarks**, executando os programas `video_hill`/FFmpeg, o programa `video_hill_mpi` por meio de `mpirun` e o backend CUDA/FFmpeg quando CUDA estiver disponível. O servidor usa somente a biblioteca padrão do Python e escuta em `127.0.0.1`. As abas 1 a 4 também funcionam com `python3 -m http.server 8085` ou `npx serve .`; porém, a demonstração de vídeo, as APIs e os benchmarks precisam de `server.py`. A aba de imagens usa módulos JavaScript e Web Workers, por isso também precisa de um servidor local.
+
+A aba de vídeo precisa de:
 - `video.mp4` na pasta do projeto;
 - FFmpeg instalado (o servidor também encontra a instalação feita pelo winget);
-- `video_hill` compilado na raiz do projeto (`video_hill.exe` no Windows), com os comandos da seção *Experimento com vídeos*.
+- `video_hill` compilado na raiz do projeto para `seq`, OpenMP e pipeline;
+- para MPI, `video_hill_mpi` compilado na raiz do projeto e `mpirun` disponível no PATH. A compilação MPI está documentada para Linux/WSL.
 
 O modo GPU de imagem e vídeo e o benchmark CUDA são opcionais: exigem GPU NVIDIA compatível, driver, CUDA Toolkit e MSVC no Windows, conforme a seção *Modos GPU CUDA na interface*. O baseline `seq` continua obrigatório em cada rodada de benchmark, então os modos CPU permanecem necessários para a comparação.
 
 O que a aba faz:
 - **Laboratório:** recorta um trecho do vídeo, cifra, decifra, compara o SHA-256 dos quadros e mostra os três vídeos sincronizados (original, cifrado e decifrado). Também mostra os tempos impressos pelo programa e a análise de um quadro: histogramas, entropia e correlação entre vizinhos dos planos Y, U e V.
-- **Benchmark:** sempre roda `seq`; também pode rodar `omp` e `pipeline` com os números de threads escolhidos e, opcionalmente, uma configuração `cuda`. Faz aquecimento próprio e repetições em ordem embaralhada. Os resultados ficam em `video_lab/benchmarks.json` e aparecem em gráficos de tempo por configuração, speedup e divisão por leitura/cifra/gravação. CUDA é mostrado como GPU, não como contagem de threads. A opção *Descartar a saída* evita manter a saída de vídeo no disco durante a medição.
+- **Demonstração MPI:** executa cifragem e decifragem com a quantidade de processos escolhida. O rank 0 lê os quadros, distribui as parcelas com `MPI_Scatterv`, reúne as parcelas processadas com `MPI_Gatherv` e grava os quadros; todos os ranks, inclusive o rank 0, participam da cifra.
+- **Benchmark:** sempre roda `seq`; também pode rodar `omp` e `pipeline` com as quantidades de threads escolhidas, MPI com as quantidades de processos escolhidas e, opcionalmente, uma configuração `cuda`. Faz aquecimentos próprios e repetições em ordem embaralhada. Os resultados ficam em `video_lab/benchmarks.json` e aparecem em gráficos de tempo por configuração, speedup e divisão por leitura/cifra/gravação. A tabela e os tooltips distinguem threads de processos; CUDA é mostrado como GPU. A opção *Descartar a saída* evita manter a saída de vídeo no disco durante a medição.
 
 Tudo que é gerado vai para `video_lab/`, que o git ignora.
 
@@ -450,17 +553,21 @@ parallel_Hill_Cipher/
 ├── image-core.mjs              # Matrizes e transformação de bytes compatíveis com C
 ├── image-worker.mjs            # Execução paralela no navegador
 ├── image-demo.mjs              # Interface do laboratório de imagens
-├── video-lab.mjs               # Aba de vídeo: laboratório, análise do quadro e gráficos do benchmark
-├── server.py                   # Servidor local: site + APIs de imagem CUDA, vídeo CUDA/CPU e benchmarks
+├── video-lab.mjs               # Aba de vídeo: laboratório, análise, demonstração MPI e benchmark
+├── server.py                   # Servidor local: site + APIs de imagem, vídeo CPU/MPI/CUDA e benchmarks
 ├── video.mp4                   # Video de teste (1080p, 79 s)
 ├── video_lab/                  # Saidas do laboratorio e benchmarks.json (gerado, ignorado pelo git)
+├── hello_mpi.c                 # Programa mínimo para testar a instalação MPI
 ├── tanayseven_hill_cipher.c    # Código em C de referência compilável
 ├── HillCypherCode/
 │   ├── hillcypherOMP.c         # Experimento anterior com texto modulo 26
 │   ├── image_hill.c            # Cifra experimental de imagens seq/OMP/Pthreads
 │   ├── image_hill_cuda.cu      # Backend CUDA: imagens em lotes e vídeo em streaming
 │   ├── hill_block.h            # Núcleo da cifra (mix e block) usado pelo vídeo
-│   └── video_hill.c            # Cifra de vídeo quadro a quadro: seq/OMP/pipeline
+│   ├── video_hill.c            # Cifra de vídeo quadro a quadro: seq/OMP/pipeline
+│   ├── video_hill_mpi.c        # Versão MPI: distribuição dos blocos entre processos
+│   ├── stb_image.h             # Leitura de imagens (biblioteca stb)
+│   └── stb_image_write.h       # Escrita de imagens (biblioteca stb)
 ├── tests/test_image_hill.py    # Testes de recuperacao e equivalencia (planejado, ainda nao existe)
 ├── Artigo_PCD_SBC_Esboço_Imagens.docx # Esboço do artigo atualizado
 ├── README.md                   # Guia do projeto

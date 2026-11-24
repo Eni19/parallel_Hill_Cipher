@@ -786,7 +786,7 @@
     <!-- ============================================================== -->
     <div id="tab-video" class="tab-content">
       <section class="story-hero video-hero">
-        <span class="step-badge">Programa C &bull; OpenMP &bull; FFmpeg</span>
+        <span class="step-badge">Programa C &bull; OpenMP &bull; MPI &bull; FFmpeg</span>
         <h2>Vídeo cifrado quadro a quadro</h2>
         <p>O programa <code>video_hill</code> aplica a mesma cifra das imagens a cada quadro do vídeo. Aqui você roda o programa C de verdade na sua máquina, compara o vídeo antes e depois e mede como o número de threads muda o tempo.</p>
       </section>
@@ -802,11 +802,11 @@
 
       <section class="timeline-card video-modes">
         <span class="step-badge">Antes de rodar</span>
-        <h3 class="timeline-title">O que muda entre seq, omp e pipeline?</h3>
-        <p>Os três modos fazem as mesmas três etapas com cada quadro: <strong>ler</strong> (receber o quadro do FFmpeg), <strong>cifrar</strong> e <strong>gravar</strong>. O resultado cifrado é idêntico nos três. O que muda é <strong>quem faz cada etapa e quando</strong>.</p>
+        <h3 class="timeline-title">O que muda entre seq, omp, pipeline e mpi?</h3>
+		<p>Os quatro modos executam a mesma cifra de Hill sobre os quadros do vídeo. O que muda é a forma de distribuir o trabalho: <strong>seq</strong> utiliza uma única thread; <strong>omp</strong> divide os blocos entre threads; <strong>pipeline</strong> sobrepõe leitura, cifra e gravação; e <strong>mpi</strong> distribui os blocos entre processos independentes, que trocam dados por comunicação MPI.</p>
         <div class="video-legend" id="mode-legend"></div>
         <div id="mode-timelines" class="mode-timelines"></div>
-        <p class="image-hint">Desenho esquemático com 3 quadros: ler e gravar valem 1 unidade de tempo e cifrar vale 3 unidades com uma thread. Ele mostra o caso ideal. Na prática o ganho é menor, porque as threads disputam os núcleos com o FFmpeg (veja o benchmark abaixo).</p>
+        <p class="image-hint">Os diagramas representam, de forma esquemática, o processamento de três quadros e a distribuição do trabalho entre threads ou processos. No modo sequencial, uma única thread lê, cifra o quadro inteiro e o grava. No OpenMP, o quadro é dividido entre as threads, que cifram suas respectivas partes em paralelo. No pipeline, leitura, cifragem e gravação de quadros diferentes acontecem simultaneamente. No MPI, o rank 0 lê cada quadro e distribui suas partes entre os processos por meio de <code>MPI_Scatterv</code>. Todos os processos, inclusive o rank 0, cifram suas respectivas partes em paralelo. Em seguida, <code>MPI_Gatherv</code> reúne os resultados no rank 0, que reconstrói e grava o quadro. As larguras dos blocos são ilustrativas e não representam tempos reais ou custos de comunicação. Para comparar o desempenho dos modos, utilize os resultados do benchmark abaixo.</p>
         <div class="mode-cards">
           <article>
             <h4>seq</h4>
@@ -820,22 +820,53 @@
             <h4>pipeline <small>(linha de montagem)</small></h4>
             <p>Cada thread tem uma função fixa: uma só lê, uma só grava e N só cifram. Enquanto o quadro 1 é cifrado, o quadro 2 já está sendo lido e o 0 está sendo gravado. Três buffers se revezam, e uma barreira separa cada passo.</p>
           </article>
+		  <article>
+			<h4>mpi <small>(Message Passing Interface)</small></h4>
+			<p>Vários processos MPI dividem os blocos de cada quadro. O processo de rank 0 coordena a execução, lê o quadro e distribui as partes usando <code>MPI_Scatterv</code>. Todos os processos, inclusive o rank 0, cifram suas partes independentemente. Depois, os resultados são reunidos no processo 0 por meio de <code>MPI_Gatherv</code>, que reconstrói o quadro e o encaminha para gravação.</p>
+		  </article>
         </div>
-        <div class="mode-threads">
-          <h4>O que significa “3+2”?</h4>
-          <p>O número escolhido é sempre o de <strong>threads de cifra</strong>. O pipeline acrescenta <strong>+2</strong> threads de entrada e saída (uma leitora e uma gravadora). Assim, <code>pipeline 3+2</code> cria 5 threads.</p>
-          <div class="video-table-wrap">
-            <table class="video-table">
-              <thead><tr><th scope="col">Comando</th><th scope="col">Threads criadas</th><th scope="col">Quem faz o quê</th></tr></thead>
-              <tbody>
-                <tr><th scope="row"><code>seq</code></th><td>1</td><td>a mesma thread lê, cifra e grava</td></tr>
-                <tr><th scope="row"><code>omp 3</code></th><td>3</td><td>as 3 cifram juntas; a thread principal também lê e grava, enquanto as outras esperam</td></tr>
-                <tr><th scope="row"><code>pipeline 3</code> (3+2)</th><td>5</td><td>3 só cifram, 1 só lê, 1 só grava, todas ao mesmo tempo</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+
+		<div class="mode-threads">
+			<h4>Como interpretar a quantidade de threads e processos?</h4>
+
+			<p>Nos modos OpenMP e pipeline, o número selecionado representa as <strong>threads de cifra</strong>. No MPI, representa a quantidade total de <strong>processos MPI</strong>, incluindo o processo de rank 0, que também participa da cifra enquanto coordena a entrada e a saída dos quadros.</p>
+
+			<div class="video-table-wrap">
+				<table class="video-table">
+				  <thead>
+					<tr>
+					  <th scope="col">Comando</th>
+					  <th scope="col">Unidades de processamento</th>
+					  <th scope="col">Quem faz o quê</th>
+					</tr>
+				  </thead>
+				  <tbody>
+					<tr>
+					  <th scope="row"><code>seq</code></th>
+					  <td>1 thread</td>
+					  <td>A mesma thread lê, cifra e grava os quadros.</td>
+					</tr>
+					<tr>
+					  <th scope="row"><code>omp 3</code></th>
+					  <td>3 threads</td>
+					  <td>As três threads dividem os blocos para a cifra; a thread principal também lê e grava.</td>
+					</tr>
+					<tr>
+					  <th scope="row"><code>pipeline 3</code></th>
+					  <td>5 threads (3+2)</td>
+					  <td>Três threads cifram, uma lê e uma grava, permitindo sobreposição das etapas.</td>
+					</tr>
+					<tr>
+					  <th scope="row"><code>mpi 3</code></th>
+					  <td>3 processos MPI</td>
+					  <td>Os três processos dividem os blocos. O rank 0 coordena a leitura e gravação e também participa da cifra.</td>
+					</tr>
+				  </tbody>
+				</table>
+			</div>
+
+			<p class="image-hint">OpenMP utiliza threads que compartilham o espaço de memória do processo. MPI utiliza processos com espaços de memória independentes, que trocam dados por operações explícitas de comunicação. Nesta implementação, a execução MPI é iniciada localmente com <code>mpirun</code>.</p>
+		</div>
 
       <section class="timeline-card video-lab">
         <div class="image-section-head">
@@ -911,17 +942,19 @@
 
       <section class="timeline-card video-bench">
         <span class="step-badge">Benchmark</span>
-        <h3 class="timeline-title">Comparação de desempenho: CPU × CUDA</h3>
-        <p>Compare <code>seq</code>, OpenMP, pipeline e CUDA sobre o mesmo trecho. O <code>seq</code> sempre entra como base do speedup. CUDA aparece como uma configuração GPU separada; os pontos mostram a mediana e as barras finas, o menor e o maior tempo.</p>
-        <p class="video-note-info"><strong>Os gráficos são gerados com dados reais.</strong> Cada clique em “Rodar benchmark” executa as configurações novamente e salva uma nova <em>rodada</em> em <code>video_lab/benchmarks.json</code>; as rodadas anteriores continuam disponíveis em “Rodada”. Cada modo selecionado roda várias vezes em ordem embaralhada; as medianas, mínimos e máximos são comparados. A configuração CUDA tem aquecimento próprio e mede leitura, transferência/cifra GPU e gravação; o limite de VRAM escolhido aplica-se a cada execução CUDA. Diferenças menores que a faixa entre o mínimo e o máximo não devem ser tratadas como conclusão.</p>
+        <h3 class="timeline-title">Comparação de desempenho: CPU × CUDA e OpenMP × MPI</h3>
+		<p>Compare as diferentes estratégias de processamento da Cifra de Hill sobre o mesmo trecho de vídeo. Na CPU, são avaliados os modos <code>seq</code>, OpenMP, pipeline e MPI. O modo <code>seq</code> sempre é incluído como referência para o cálculo do speedup. OpenMP e pipeline são configurados pelo número de threads, enquanto MPI utiliza a quantidade de processos. Essas duas abordagens são apresentadas em séries distintas nos gráficos, permitindo comparar configurações com a mesma quantidade numérica de unidades de processamento. Quando disponível, CUDA permite comparar o processamento na GPU NVIDIA com as implementações em CPU. Os gráficos apresentam medianas, mínimos e máximos das execuções.</p>
+        <p class="video-note-info"><strong>Os gráficos são gerados com dados reais.</strong> Cada clique em "Rodar benchmark" executa as configurações selecionadas e salva uma nova rodada em <code>video_lab/benchmarks.json</code>. O modo sequencial sempre é incluído como referência. As configurações de OpenMP e pipeline utilizam as quantidades de threads selecionadas; MPI utiliza as quantidades de processos escolhidas. As execuções são realizadas em ordem embaralhada, com aquecimentos próprios para CPU, MPI e CUDA quando selecionados. Os gráficos apresentam medianas, mínimos, máximos, speedups e distribuição do tempo entre leitura, cifra e gravação. Diferenças pequenas devem ser interpretadas considerando a variação entre as repetições.</p>
         <div class="video-bench-controls">
           <fieldset class="video-fieldset"><legend>Modos</legend>
             <label><input type="checkbox" checked disabled> seq</label>
             <label><input type="checkbox" name="bench-mode" value="omp" checked> omp</label>
             <label><input type="checkbox" name="bench-mode" value="pipeline" checked> pipeline</label>
+			<label><input id="bench-mpi" type="checkbox" name="bench-mode" value="mpi" disabled>mpi</label>
             <label><input id="bench-cuda" type="checkbox" name="bench-mode" value="cuda" disabled> cuda</label>
           </fieldset>
           <fieldset class="video-fieldset"><legend>Threads de cifra</legend><div id="bench-threads"></div></fieldset>
+		  <fieldset class="video-fieldset"><legend>Processos MPI</legend><div id="bench-processes"></div></fieldset>
           <label class="image-field" for="bench-reps">Repetições<input id="bench-reps" type="number" min="1" max="20" value="3"></label>
           <label class="image-field" for="bench-seconds">Duração (s)<input id="bench-seconds" type="number" min="1" max="30" value="8"></label>
           <label class="image-field" for="bench-cuda-memory">Limite CUDA <output id="bench-cuda-memory-value">60%</output><input id="bench-cuda-memory" type="range" min="10" max="80" step="10" value="60" disabled></label>
